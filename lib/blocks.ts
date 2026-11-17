@@ -1,0 +1,195 @@
+/** Everything people see in Slack. Pure, tested. */
+import type { App } from "./config";
+import { MAX_ROUNDS } from "./config";
+import type { Assessment } from "./prompt";
+import type { Card, Stage, Summary } from "./records";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Block = Record<string, any>;
+
+const STEPS = ["Received", "Questions", "Waiting for ✅", "Building", "Waiting for approval", "Live ✅"];
+
+const STEP_OF: Partial<Record<Stage, number>> = {
+  grilling: 1,
+  confirm: 2,
+  queued: 3,
+  building: 3,
+  approval: 4,
+  proposal: 4,
+  deploying: 4,
+  live: 5,
+};
+
+const ENDINGS: Partial<Record<Stage, string>> = {
+  answered: "Answered, no change needed",
+  handed: "Passed to Jamie",
+  parked: "Not now (Jamie)",
+  declined: "Declined",
+  closed: "Closed (no reply). Reply here any time to reopen it",
+  failed: "Couldn't build it",
+};
+
+/** The one status line Claude keeps updated at the top of the thread. */
+export function statusLine(stage: Stage, waitingOn = ""): string {
+  const end = ENDINGS[stage];
+  if (end) return `*Status:* ${end}`;
+  const at = STEP_OF[stage] ?? 0;
+  const steps = STEPS.map((s, i) => (i === at ? `*${i === 4 && waitingOn ? `Waiting for ${waitingOn}` : stage === "deploying" ? "Going live" : s}*` : s));
+  return `*Status:* ${steps.join(" → ")}`;
+}
+
+export function cardBlocks(c: Card, app: App | undefined): Block[] {
+  const waitingOn = c.stage === "approval" ? (c.approver === "jamie" ? "Jamie" : "Sam") : c.stage === "proposal" ? "Jamie" : "";
+  const bits = [app ? app.name : "", c.tier === "small" ? "Small fix" : c.tier === "bigger" ? "Bigger: a proposal for Jamie" : ""].filter(Boolean);
+  const blocks: Block[] = [{ type: "section", text: { type: "mrkdwn", text: statusLine(c.stage, waitingOn) } }];
+  const ctx = [...bits];
+  if (c.prUrl && (c.stage === "approval" || c.stage === "deploying" || c.stage === "live")) ctx.push(`<${c.prUrl}|The change>`);
+  if (c.stage === "failed" && c.note) ctx.push(c.note);
+  if (c.stage === "declined" && c.note) ctx.push(`Why: ${c.note}`);
+  if (ctx.length) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: ctx.join(" · ") }] });
+  return blocks;
+}
+
+export function questionBlocks(requester: string, a: Assessment, round: number): Block[] {
+  const intro =
+    round === 1
+      ? `<@${requester}> thanks. A few quick questions so this comes out right (round ${round} of ${MAX_ROUNDS}). Reply in this thread, e.g. "1 yes, 2 b".`
+      : `<@${requester}> thanks, nearly there (round ${round} of ${MAX_ROUNDS}). Reply in this thread.`;
+  const blocks: Block[] = [];
+  if (a.reply_note) blocks.push({ type: "section", text: { type: "mrkdwn", text: a.reply_note } });
+  blocks.push({ type: "section", text: { type: "mrkdwn", text: intro } });
+  if (a.contradiction.found) blocks.push(contradictionBlock(a));
+  a.questions.forEach((q, i) => {
+    blocks.push({ type: "section", text: { type: "mrkdwn", text: `*${i + 1}.* ${q.q}\n➡️ _Suggested:_ ${q.suggested}` } });
+  });
+  return blocks;
+}
+
+function contradictionBlock(a: Assessment): Block {
+  const when = a.contradiction.decided_on ? ` (${a.contradiction.decided_on})` : "";
+  return {
+    type: "section",
+    text: { type: "mrkdwn", text: `⚠️ *This would change something Jamie decided${when}:*\n>${a.contradiction.decision.replace(/\n/g, "\n>")}\nSo it will go to Jamie as a proposal.` },
+  };
+}
+
+export function summaryText(s: Summary): string {
+  return [`*${s.title}*`, `*Now:* ${s.now}`, `*Should:* ${s.should}`, `*Who and how often:* ${s.who}`, `*Done looks like:* ${s.done}`, `*What I'll do:* ${s.plan}`].join("\n");
+}
+
+export function summaryBlocks(requester: string, a: Assessment, app: App, value: string): Block[] {
+  const route =
+    a.tier === "small"
+      ? `This is a *small fix*. Once you tap ✅ I'll build it, and Sam will check it before it goes live.`
+      : `This is a *bigger* one (${a.bigger_reasons.join("; ") || "a new feature"}), so once you tap ✅ it goes to Jamie as a proposal. Nothing is built until he says so.`;
+  const blocks: Block[] = [];
+  if (a.reply_note) blocks.push({ type: "section", text: { type: "mrkdwn", text: a.reply_note } });
+  blocks.push({ type: "section", text: { type: "mrkdwn", text: `<@${requester}> here's what I'll do on *${app.name}*:` } });
+  blocks.push({ type: "section", text: { type: "mrkdwn", text: summaryText(a.summary) } });
+  if (a.contradiction.found) blocks.push(contradictionBlock(a));
+  if (!a.recorded_decision_found) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "There's no recorded decision on this, so it wasn't checked against one." }] });
+  blocks.push({ type: "section", text: { type: "mrkdwn", text: route } });
+  blocks.push({
+    type: "actions",
+    elements: [{ type: "button", style: "primary", action_id: "confirm", text: { type: "plain_text", text: "✅ Yes, that's right" }, value }],
+  });
+  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Not quite right? Reply in this thread and I'll redo the summary." }] });
+  return blocks;
+}
+
+export function answerBlocks(requester: string, text: string): Block[] {
+  return [
+    { type: "section", text: { type: "mrkdwn", text: `<@${requester}> ${text}` } },
+    { type: "context", elements: [{ type: "mrkdwn", text: "Not what you meant? Reply in this thread." }] },
+  ];
+}
+
+export type Built = { changed: string; checks: "passed" | "failed"; preview: string; prUrl: string };
+
+/** To Sam (small fixes) or Jamie (bigger ones he said to build): the finished change. */
+export function approvalBlocks(o: { app: App; requester: string; summary: Summary; built: Built; link: string; noDecision: boolean; value: string }): Block[] {
+  const blocks: Block[] = [
+    { type: "section", text: { type: "mrkdwn", text: `*Ready to ship: ${o.summary.title}*\n${o.app.name} · asked by <@${o.requester}> · <${o.link}|the request>` } },
+    { type: "section", text: { type: "mrkdwn", text: `*What was asked:* ${o.summary.should}\n*Done looks like:* ${o.summary.done}` } },
+    { type: "section", text: { type: "mrkdwn", text: `*What changed:* ${o.built.changed}` } },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: [
+          o.built.checks === "passed" ? "✅ Checks passed (tests, lint, build)" : "❌ Checks failed",
+          o.built.preview ? `<${o.built.preview}|Try it before it goes live (preview)>` : "No preview link (open the change to see the picture)",
+          `<${o.built.prUrl}|The change, with its picture>`,
+        ].join("\n"),
+      },
+    },
+  ];
+  if (o.noDecision) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "No recorded decision on this: it wasn't checked against one." }] });
+  blocks.push({
+    type: "actions",
+    elements: [
+      { type: "button", style: "primary", action_id: "approve", text: { type: "plain_text", text: "Approve and ship" }, value: o.value },
+      { type: "button", action_id: "changes", text: { type: "plain_text", text: "Ask for changes" }, value: o.value },
+      { type: "button", style: "danger", action_id: "reject", text: { type: "plain_text", text: "Reject" }, value: o.value },
+    ],
+  });
+  return blocks;
+}
+
+/** To Jamie: a bigger request, proposal only. Sam gets a copy with a comment button. */
+export function proposalBlocks(o: { app: App; requester: string; summary: Summary; card: Card; size: string; link: string; value: string; forSam: boolean }): Block[] {
+  const blocks: Block[] = [
+    { type: "section", text: { type: "mrkdwn", text: `*Proposal: ${o.summary.title}*\n${o.app.name} · asked by <@${o.requester}> · size ${o.size} · <${o.link}|the request>` } },
+    { type: "section", text: { type: "mrkdwn", text: summaryText(o.summary) } },
+    { type: "section", text: { type: "mrkdwn", text: `*Why it's bigger:* ${o.card.reasons || "a new feature"}` } },
+  ];
+  if (o.card.contradiction) blocks.push({ type: "section", text: { type: "mrkdwn", text: `⚠️ *It would change your decision:*\n>${o.card.contradiction.replace(/\n/g, "\n>")}` } });
+  if (o.card.noDecision) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "No recorded decision on this: it wasn't checked against one." }] });
+  if (o.card.samComment) blocks.push({ type: "section", text: { type: "mrkdwn", text: `*Sam:* ${o.card.samComment}` } });
+  if (o.forSam) {
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Jamie decides. Add a comment if it helps him." }] });
+    blocks.push({ type: "actions", elements: [{ type: "button", action_id: "sam_comment", text: { type: "plain_text", text: "Add a comment" }, value: o.value }] });
+  } else {
+    blocks.push({
+      type: "actions",
+      elements: [
+        { type: "button", style: "primary", action_id: "build_it", text: { type: "plain_text", text: "Build it" }, value: o.value },
+        { type: "button", action_id: "discuss", text: { type: "plain_text", text: "Discuss" }, value: o.value },
+        { type: "button", action_id: "not_now", text: { type: "plain_text", text: "Not now" }, value: o.value },
+        { type: "button", style: "danger", action_id: "decline", text: { type: "plain_text", text: "Decline" }, value: o.value },
+      ],
+    });
+  }
+  return blocks;
+}
+
+/** What an approval or proposal DM becomes once someone has acted on it. */
+export function doneBlocks(title: string, outcome: string): Block[] {
+  return [{ type: "section", text: { type: "mrkdwn", text: `*${title}*\n${outcome}` } }];
+}
+
+export function failedBlocks(o: { title: string; reason: string; link: string; runUrl: string; value: string }): Block[] {
+  return [
+    { type: "section", text: { type: "mrkdwn", text: `*Couldn't build it: ${o.title}*\n${o.reason}\n<${o.link}|The request> · <${o.runUrl}|What happened on GitHub>` } },
+    {
+      type: "actions",
+      elements: [
+        { type: "button", style: "primary", action_id: "retry", text: { type: "plain_text", text: "Try again" }, value: o.value },
+        { type: "button", action_id: "drop", text: { type: "plain_text", text: "Close the request" }, value: o.value },
+      ],
+    },
+  ];
+}
+
+/** A modal that asks for a few words (why, what to change, a comment). */
+export function textModal(o: { callbackId: string; title: string; label: string; submit: string; value: string }): Block {
+  return {
+    type: "modal",
+    callback_id: o.callbackId,
+    private_metadata: o.value,
+    title: { type: "plain_text", text: o.title.slice(0, 24) },
+    submit: { type: "plain_text", text: o.submit },
+    close: { type: "plain_text", text: "Cancel" },
+    blocks: [{ type: "input", block_id: "text", label: { type: "plain_text", text: o.label }, element: { type: "plain_text_input", action_id: "text", multiline: true } }],
+  };
+}

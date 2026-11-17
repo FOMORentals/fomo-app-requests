@@ -1,0 +1,33 @@
+# fomo-app-requests
+
+Read `../FOMO-ENGINEERING-RULES.md` first when it is there (a copy for the build robot is in
+`rules/FOMO-ENGINEERING-RULES.md`; change both). Jamie is not an engineer: explain in business terms.
+
+What this is: the team asks for app changes in Slack #app-requests. Claude asks a few questions, checks the
+request against Jamie's recorded decisions, and either answers it, builds a small fix (a GitHub issue in the
+app's repo that the "App request build" workflow turns into a pull request for Sam to approve), or sends a
+proposal to Jamie. Designed with Jamie on 17 Nov 2026. Decisions are in `docs/DESIGN.md`; keep it current.
+Setup: `docs/SETUP.md`.
+
+- `lib/config.ts` people, apps (build / proposal / not offered), limits.
+- `lib/prompt.ts` what Claude is told and the answer's shape; `enforce` applies the hard rules in code.
+- `lib/handlers.ts` Slack messages, buttons, forms, build reports. `lib/actions.ts` side effects.
+- `lib/tick.ts` the 15-minute cron (nudges, reminders, queued builds, timeouts, live checks).
+- `lib/records.ts` the request's state, stored as metadata on the bot's card in the thread (Slack is the database).
+- `templates/` the two workflows copied into each app repo: `app-request-build.yml` (the build robot) and
+  `design-notes.yml` (the "Design notes" check).
+
+External calls: Slack, GitHub, Anthropic. Nothing else.
+Before saying done: `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`.
+
+Every PR description has a `## Team note` section (see the PR template). It is what the team reads in
+#whats-new: a headline, what changed, what they do differently, a picture added in the same PR under
+`whats-new/`, always (a screenshot, or a mock-up or diagram/workflow when there is nothing to screenshot;
+"to follow" and "None" are not accepted, and the "Team note picture" check fails without one), and a link.
+Write `None` when the team won't notice the change.
+
+## Design notes
+Jamie's decisions for this app are in `docs/DESIGN.md`, with who made each and when. Claude reads it at every
+#app-requests request, so it must be current: when a decision is made or changed (in a pull request, in a chat
+with Jamie, anywhere), write it there the same day (rule 7). Every pull request either updates it or says under
+`## Design notes` "No decision changed: <why>"; the "Design notes" check fails otherwise.
