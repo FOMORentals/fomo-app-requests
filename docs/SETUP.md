@@ -29,6 +29,7 @@ About 30 minutes. Nothing goes live until step 7.
    string), `APP_URL`, `SENTRY_DSN`. Deploy. Then in the Slack app's Event Subscriptions page, check the
    request URL shows "Verified".
 8. **What's new.** Give its GitHub token read access to fomo-app-requests, so changes to this app are announced.
-9. **Merge** the "App requests: build robot and design notes" pull requests in the four app repos.
+9. **Inventory previews.** In Vercel, project fomo-inventory-dashboard → Settings → Environment Variables: add `GOOGLE_WORKSPACE_DOMAIN` = `fomorentals.co.uk` for **Preview** (it is set for Production only, so every preview build fails and Sam would get no preview link).
+10. **Merge** the "App requests: build robot and design notes" pull requests in the four app repos.
 
 Try it: post a small request in `#app-requests` yourself.
