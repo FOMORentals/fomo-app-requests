@@ -14,7 +14,7 @@ About 30 minutes. Nothing goes live until step 7.
    Repositories: fomo-bookings-board-v2, fomo-overtime, fomo-whats-new, fomo-inventory-dashboard (where it
    builds) plus fomo-app-requests and every repo in `lib/config.ts` (to read their design notes).
    Permissions: Contents **Read and write**, Issues **Read and write**, Pull requests **Read and write**,
-   Deployments **Read**. Longest expiry; put a calendar reminder to renew.
+   Commit statuses **Read** (how the app sees a change go live). Longest expiry; put a calendar reminder to renew.
 5. **GitHub secrets.** FOMORentals is a personal account (no organisation secrets), so add these to **each** of
    the four build repos (repo → Settings → Secrets and variables → Actions → New repository secret):
    - `CLAUDE_CODE_OAUTH_TOKEN`: the token from step 3

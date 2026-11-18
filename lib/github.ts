@@ -95,26 +95,26 @@ export async function mergePr(repo: string, pr: number): Promise<string> {
 export type DeployState = "success" | "failure" | "pending" | "none";
 
 /** The live (Production) deploy of a commit, as Vercel reports it to GitHub. */
+/**
+ * Vercel reports each deploy on the commit as a GitHub commit status (context "Vercel", or "Vercel – <project>"
+ * when one repo feeds several projects); it doesn't create GitHub deployments for these repos (found 18 Nov 2026).
+ * The merge commit is on main, so its Vercel statuses are the live deploys.
+ */
+export function vercelState(statuses: { context: string; state: string; target_url?: string | null }[]): { state: DeployState; url: string } {
+  const v = statuses.filter((s) => /vercel/i.test(s.context));
+  if (!v.length) return { state: "none", url: "" };
+  const bad = v.find((s) => s.state === "failure" || s.state === "error");
+  if (bad) return { state: "failure", url: bad.target_url || "" };
+  if (v.every((s) => s.state === "success")) return { state: "success", url: v[0].target_url || "" };
+  return { state: "pending", url: "" };
+}
+
 export async function productionDeploy(repo: string, sha: string): Promise<{ state: DeployState; url: string }> {
-  const deps = (await (await gh(`/repos/${OWNER}/${repo}/deployments?sha=${sha}&per_page=20`)).json()) as {
-    id: number;
-    environment: string;
-  }[];
-  const prod = deps.filter((d) => /production/i.test(d.environment) && !/preview/i.test(d.environment));
-  if (!prod.length) return { state: "none", url: "" };
-  let pending = false;
-  for (const d of prod) {
-    const statuses = (await (await gh(`/repos/${OWNER}/${repo}/deployments/${d.id}/statuses?per_page=5`)).json()) as {
-      state: string;
-      environment_url?: string;
-      target_url?: string;
-    }[];
-    const s = statuses[0]?.state;
-    if (s === "success") return { state: "success", url: statuses[0].environment_url || statuses[0].target_url || "" };
-    if (s === "failure" || s === "error") return { state: "failure", url: statuses[0].target_url || "" };
-    pending = true;
-  }
-  return { state: pending ? "pending" : "none", url: "" };
+  // The combined status keeps the latest status per context.
+  const res = (await (await gh(`/repos/${OWNER}/${repo}/commits/${sha}/status?per_page=100`)).json()) as {
+    statuses: { context: string; state: string; target_url?: string | null }[];
+  };
+  return vercelState(res.statuses ?? []);
 }
 
 /** Whether a build issue is still open (a person may have closed it on GitHub). */
