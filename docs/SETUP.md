@@ -15,8 +15,8 @@ About 30 minutes. Nothing goes live until step 7.
    builds) plus fomo-app-requests and every repo in `lib/config.ts` (to read their design notes).
    Permissions: Contents **Read and write**, Issues **Read and write**, Pull requests **Read and write**,
    Deployments **Read**. Longest expiry; put a calendar reminder to renew.
-5. **GitHub secrets** (FOMORentals organisation → Settings → Secrets → Actions, available to the four build
-   repos):
+5. **GitHub secrets.** FOMORentals is a personal account (no organisation secrets), so add these to **each** of
+   the four build repos (repo → Settings → Secrets and variables → Actions → New repository secret):
    - `CLAUDE_CODE_OAUTH_TOKEN`: the token from step 3
    - `APP_REQUESTS_GH_TOKEN`: the token from step 4
    - `APP_REQUESTS_CALLBACK_SECRET`: any long random string (also `BUILD_CALLBACK_SECRET` below)
