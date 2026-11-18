@@ -16,7 +16,7 @@ concurrency:
 permissions:
   contents: read
   issues: read
-
+  pull-requests: read # Vercel's preview comment
 jobs:
   build:
     if: github.event.label.name == 'app-request' && github.event.issue.state == 'open'
