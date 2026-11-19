@@ -21,3 +21,7 @@ test("sharedFiles finds the files both changes touch, once each", () => {
   ]);
   assert.deepEqual(sharedFiles(["lib/a.ts"], ["lib/b.ts"]), []);
 });
+
+test("sharedFiles ignores design notes and team-note pictures", () => {
+  assert.deepEqual(sharedFiles(["docs/DESIGN.md", "whats-new/a.png", "lib/x.ts"], ["docs/DESIGN.md", "whats-new/a.png"]), []);
+});

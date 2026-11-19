@@ -87,7 +87,10 @@ export async function closePr(repo: string, pr: number): Promise<void> {
 /** Files touched by both lists: the clash risk between a waiting change and what went live since it was built. Pure. */
 export function sharedFiles(changed: string[], liveSince: string[]): string[] {
   const live = new Set(liveSince);
-  return [...new Set(changed)].filter((f) => live.has(f));
+  // Design notes and team-note pictures change in nearly every pull request without touching how the app works; a
+  // real text clash in them is still caught when GitHub refuses the merge.
+  const notes = (f: string) => f.startsWith("docs/") || f.startsWith("whats-new/");
+  return [...new Set(changed)].filter((f) => live.has(f) && !notes(f));
 }
 
 /**

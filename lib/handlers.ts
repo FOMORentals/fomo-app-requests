@@ -278,27 +278,38 @@ async function sendProposal(l: Loaded, now = Date.now()): Promise<void> {
   await save(l);
 }
 
+/** Rebuilds an approved change on top of what went live since, instead of merging it (Jamie, 19 Nov 2026). */
+async function catchUp(l: Loaded, name: string, why: string): Promise<void> {
+  const app = appOf(l);
+  l.card.catchUps++;
+  await rebuild(
+    app.repo,
+    l.card.issue,
+    `${name} approved this, but ${why}. The branch now includes what went live since: make sure this change still does what was asked alongside it, keep the other changes intact, and run the checks again. Change nothing else.`,
+  );
+  l.card.stage = "building";
+  l.card.startedAt = Date.now();
+  await save(l);
+  const title = l.card.summary?.title ?? "Change";
+  await settle(l.card.approvalChannel, l.card.approvalTs, title, "Another change to the same screen went live first, so I'm rebuilding this on top of it. You'll get it to approve again in about 15 minutes.");
+  await postInThread(l.channel, l.thread, "Another change to the same screen went live first, so I'm rebuilding this on top of it before it goes live. It'll come back for approval in about 15 minutes.");
+}
+
 async function approve(l: Loaded, u: Who): Promise<void> {
   const app = appOf(l);
   const name = await nameOf(u.id);
-  // Another change to the same files went live after this one was built: rebuild it on top first, so the two
-  // can't undo or break each other (Jamie, 19 Nov 2026). Twice at most, then it merges as it is.
-  if (l.card.catchUps < MAX_CATCH_UPS) {
-    const clash = await overlapSinceBuilt(app.repo, l.card.pr);
+  // Another change to the same code went live after this one was built: rebuild it on top first, so the two
+  // can't undo or break each other. Twice at most, then it merges as it is.
+  const canCatchUp = l.card.catchUps < MAX_CATCH_UPS;
+  if (canCatchUp) {
+    let clash: string[] = [];
+    try {
+      clash = await overlapSinceBuilt(app.repo, l.card.pr);
+    } catch (err) {
+      report(err, "approve.overlap", { repo: app.repo, pr: l.card.pr }); // the merge below still refuses a real conflict
+    }
     if (clash.length) {
-      l.card.catchUps++;
-      await rebuild(
-        app.repo,
-        l.card.issue,
-        `${name} approved this, but another change to the same files went live after it was built (${clash.slice(0, 5).join(", ")}). ` +
-          "The branch now includes that change: make sure this change still does what was asked alongside it, keep the other change intact, and run the checks again. Change nothing else.",
-      );
-      l.card.stage = "building";
-      l.card.startedAt = Date.now();
-      await save(l);
-      const title = l.card.summary?.title ?? "Change";
-      await settle(l.card.approvalChannel, l.card.approvalTs, title, "Another change to the same screen went live first, so I'm rebuilding this on top of it. You'll get it to approve again in about 15 minutes.");
-      await postInThread(l.channel, l.thread, "Another change to the same screen went live first, so I'm rebuilding this on top of it before it goes live. It'll come back for approval in about 15 minutes.");
+      await catchUp(l, name, `another change to the same files went live after it was built (${clash.slice(0, 5).join(", ")})`);
       return;
     }
   }
@@ -307,6 +318,10 @@ async function approve(l: Loaded, u: Who): Promise<void> {
     sha = await mergePr(app.repo, l.card.pr);
   } catch (err) {
     report(err, "approve.merge", { repo: app.repo, pr: l.card.pr });
+    if (canCatchUp) {
+      await catchUp(l, name, "it no longer merges cleanly with what went live since it was built");
+      return;
+    }
     await dm(u.email, `I couldn't ship "${l.card.summary?.title}": GitHub wouldn't merge it (${String(err).slice(0, 200)}). Tap "Ask for changes" to have it rebuilt, or tell Jamie.`);
     return;
   }
