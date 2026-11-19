@@ -62,6 +62,13 @@ export function issueBody(o: {
   }
   if (card.noDecision) parts.push("", "_No recorded decision on this topic was found in the design notes._");
   if (card.reasons) parts.push("", `Why it was sorted as bigger: ${card.reasons}`);
+  if (card.tier !== "small" && o.jamieApproved) {
+    parts.push(
+      "",
+      "## Jamie's go-ahead",
+      `Jamie read this as a proposal, with the reasons above, and pressed Build it on ${o.today}. That is his go-ahead for exactly what those reasons name (for example extra Rentman calls): build it and don't stop for them. Stop only for something the reasons don't mention, and say what it is.`,
+    );
+  }
   parts.push("", "<details><summary>The Slack thread</summary>", "", "```", o.thread.replace(/```/g, "'''"), "```", "", "</details>");
   parts.push("", "<details><summary>FOMO engineering rules</summary>", "", o.rules, "", "</details>");
   return parts.join("\n");

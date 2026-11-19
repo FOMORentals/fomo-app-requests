@@ -21,3 +21,12 @@ test("a contradiction Jamie approved tells the builder to record the new decisio
 test("no summary, no issue", () => {
   assert.throws(() => issueBody({ app: appByKey("overtime")!, card: newCard("U1"), requesterName: "", approverName: "", link: "", thread: "", channel: "", threadTs: "", rules: "", jamieApproved: false, today: "" }));
 });
+
+test("a proposal Jamie said to build carries his go-ahead for the reasons it was bigger", () => {
+  const card = { ...newCard("U1"), tier: "bigger" as const, summary, reasons: "needs extra Rentman calls" };
+  const body = issueBody({ app: appByKey("dashboard")!, card, requesterName: "Will", approverName: "Jamie", link: "https://x", thread: "t", channel: "C1", threadTs: "1.2", rules: "RULES", jamieApproved: true, today: "2026-11-19" });
+  assert.match(body, /## Jamie's go-ahead/);
+  assert.match(body, /don't stop for them/);
+  const small = issueBody({ app: appByKey("dashboard")!, card: { ...card, tier: "small" as const }, requesterName: "Will", approverName: "Sam", link: "https://x", thread: "t", channel: "C1", threadTs: "1.2", rules: "RULES", jamieApproved: false, today: "2026-11-19" });
+  assert.doesNotMatch(small, /Jamie's go-ahead/);
+});

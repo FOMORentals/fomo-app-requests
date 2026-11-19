@@ -389,7 +389,8 @@ export async function handleBuildReport(r: BuildReport, now = Date.now()): Promi
     Object.assign(l.card, { stage: "approval", pr: r.pr, prUrl: r.prUrl, preview: r.preview ?? "", approvalChannel: d.channel, approvalTs: d.ts, pendingSince: now, reminded: false });
     await save(l);
     await postInThread(l.channel, l.thread, `Built. ${approverName} will check it before it goes live.`);
-  } else if (r.outcome === "bigger") {
+  } else if (r.outcome === "bigger" && l.card.approver !== "jamie") {
+    // Only for a small fix: a build Jamie already said yes to never goes back to him as a proposal (it looped, 19 Nov 2026).
     // Safety net (design): a "small" build that turns out to touch a Bigger area stops and becomes a proposal.
     await closeIssue(appOf(l).repo, r.issue, "not_planned").catch((e) => report(e, "bigger.close_issue"));
     l.card.tier = "bigger";

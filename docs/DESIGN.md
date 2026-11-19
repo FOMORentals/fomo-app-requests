@@ -34,6 +34,9 @@ change it here the same day (rule 7).
 ## Approvals
 - Sam approves small fixes, including his own. Jamie approves bigger ones and contradictions.
 - When Jamie taps "Build it" on a proposal, the finished change comes back to Jamie, not Sam.
+- "Build it" is Jamie's go-ahead for the reasons the proposal named (for example extra Rentman calls); the builder
+  doesn't stop for those. If it stops for something else, Jamie gets a "Couldn't build" message once, never the same
+  proposal again (19 Nov 2026, after Will's Kit Prep initials request came to Jamie three times).
 - Sam sees proposals and can comment; Jamie decides.
 - **Nothing ships without a tap.** If nobody taps, Sam and Jamie each get one reminder at 9:00 London the
   next working morning.
