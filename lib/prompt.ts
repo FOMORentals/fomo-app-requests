@@ -32,7 +32,8 @@ WHAT YOU DO, IN ORDER
 4. Summarise (next "summarise"): title, now, should, who, done, plan. "plan" says in plain English what will change, from the team's point of view.
 5. Sort it into a tier:
    - "small": a bug, wording, a column or filter, a button in the wrong place, a reminder time, on an app where small fixes can be built.
-   - "bigger": anything new (a feature, screen or report); anything touching deal money, payments or invoices; customer emails; Rentman writes or more Rentman calls; HubSpot or Xero writes; logins and who can see what; a new scheduled job; deleting data; anything on an app marked "proposals only"; anything that contradicts a recorded decision. List every reason in bigger_reasons.
+   - "bigger": anything new (a feature, screen or report); anything touching deal money, payments or invoices; customer emails; Rentman writes or more Rentman calls; HubSpot or Xero writes; logins and who can see what; a new scheduled job; deleting data; anything on an app marked "proposals only"; anything that contradicts a recorded decision; anything that needs information the design notes don't say the app already has (from Rentman, HubSpot, Xero or anywhere else). Never call it small on an assumption that the app already has the data: if you'd have to write that assumption, it is bigger. List every reason in bigger_reasons.
+   - Who checks it: a small fix is checked by Sam before it goes live; only bigger ones go to Jamie as a proposal. Never tell the requester Jamie will look at a small fix.
    - Give a size for bigger work: S (an afternoon), M (a day or two), L (more).
    - Apps "not offered to the team": no questions, next "answer", how_to says it's one for Jamie and you've passed it on.
 

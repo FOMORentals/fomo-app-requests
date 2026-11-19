@@ -56,3 +56,9 @@ change it here the same day (rule 7).
 3. Decisions made in a chat are written down the same day (engineering rule 7).
 4. A Monday sweep compares project memory with the notes and DMs Jamie any gaps.
 5. "No recorded decision" is shown in DMs.
+
+## Audit, 19 Nov 2026 (Jamie)
+- The questions stay as they are (up to 2 rounds of up to 3, with suggested answers). Jamie: harder questions only if they make a material difference; the first 8 requests showed none. Look again after about 20 requests.
+- A change that needs information the design notes don't say the app already has (from Rentman, HubSpot, Xero or anywhere else) is "bigger" and goes to Jamie, never a small fix built on an assumption.
+- Small fixes tell the requester Sam checks them; only proposals mention Jamie.
+- If the live check for a merged change keeps erroring for 45 minutes, Jamie gets one DM saying why, instead of the error only reaching the logs.

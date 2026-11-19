@@ -105,6 +105,18 @@ export async function runTick(now = Date.now()): Promise<TickResult> {
     } catch (err) {
       r.failures++;
       report(err, "tick.request", { thread: l.thread, stage: l.card.stage });
+      // A live check that keeps erroring (e.g. the GitHub key can't read a repo) must reach Jamie, not just the logs (rule 1).
+      const c = l.card;
+      if (c.stage === "deploying" && now - c.mergedAt > DEPLOY_WARN && !c.nudged) {
+        try {
+          c.nudged = true;
+          await save(l);
+          const why = err instanceof Error ? err.message.slice(0, 300) : String(err);
+          await dm(OWNER_EMAIL, `I can't check whether "${c.summary?.title}" (${appOf(l).name}) is live, so its thread is stuck on "Going live". The check fails with: ${why} ${await link(l)}`);
+        } catch (e) {
+          report(e, "tick.deploy_alert", { thread: l.thread });
+        }
+      }
     }
   }
   return r;

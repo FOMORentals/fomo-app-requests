@@ -70,3 +70,9 @@ test("the thread labels who said what", () => {
   assert.match(t, /You \(Claude\):/);
   assert.match(t, /Louis \(not the requester\)/);
 });
+
+test("the rules send unknown data to Jamie and keep small fixes with Sam", () => {
+  assert.match(RULES, /needs information the design notes don't say the app already has/);
+  assert.match(RULES, /Never call it small on an assumption/);
+  assert.match(RULES, /Never tell the requester Jamie will look at a small fix/);
+});
