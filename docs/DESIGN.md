@@ -62,3 +62,4 @@ change it here the same day (rule 7).
 - A change that needs information the design notes don't say the app already has (from Rentman, HubSpot, Xero or anywhere else) is "bigger" and goes to Jamie, never a small fix built on an assumption.
 - Small fixes tell the requester Sam checks them; only proposals mention Jamie.
 - If the live check for a merged change keeps erroring for 45 minutes, Jamie gets one DM saying why, instead of the error only reaching the logs.
+- Changes built side by side can't clash (Jamie, 19 Nov 2026: "as robust as possible"). When a change is approved, the bot checks whether another change to the same files went live after it was built. If so it isn't merged: it's rebuilt on top of the live version (the build robot merges the latest version in and Claude resolves any clash), and comes back for approval. At most twice, then it merges as it is. Chosen over a one-at-a-time queue, which would make a run of requests wait on each approval.

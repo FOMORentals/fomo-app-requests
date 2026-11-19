@@ -61,6 +61,7 @@ export type Card = {
   startedAt: number; // build started (ms)
   mergeSha: string;
   mergedAt: number;
+  catchUps: number; // times rebuilt on top of other changes that went live first
   note: string; // last outcome, e.g. why a build failed
 };
 
@@ -93,11 +94,12 @@ export function newCard(requester: string): Card {
     startedAt: 0,
     mergeSha: "",
     mergedAt: 0,
+    catchUps: 0,
     note: "",
   };
 }
 
-const NUMS = ["round", "askedAt", "issue", "pr", "pendingSince", "startedAt", "mergedAt"] as const;
+const NUMS = ["round", "askedAt", "issue", "pr", "pendingSince", "startedAt", "mergedAt", "catchUps"] as const;
 const BOOLS = ["nudged", "noDecision", "reminded"] as const;
 
 export function cardMeta(c: Card): Meta {

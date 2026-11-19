@@ -66,6 +66,8 @@ export const NOTES_FILES = ["docs/DESIGN.md", "CLAUDE.md"];
 
 /** At most this many builds run at once (design: guard rails). */
 export const MAX_BUILDS = 3;
+/** Times an approved change is rebuilt on top of others that went live first, before it merges as it is. */
+export const MAX_CATCH_UPS = 2;
 /** Grill: at most this many rounds, of at most this many questions. */
 export const MAX_ROUNDS = 2;
 export const MAX_QUESTIONS = 3;

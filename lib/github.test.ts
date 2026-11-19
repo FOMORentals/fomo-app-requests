@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { vercelState } from "./github";
+import { sharedFiles, vercelState } from "./github";
 
 test("vercelState: live once every Vercel project on the commit is done", () => {
   assert.deepEqual(vercelState([]), { state: "none", url: "" });
@@ -12,4 +12,12 @@ test("vercelState: live once every Vercel project on the commit is done", () => 
     state: "failure",
     url: "https://vercel.com/b",
   });
+});
+
+test("sharedFiles finds the files both changes touch, once each", () => {
+  assert.deepEqual(sharedFiles(["lib/kit-prep.ts", "components/KitPrep.tsx", "lib/kit-prep.ts"], ["components/KitPrep.tsx", "lib/kit-prep.ts", "README.md"]), [
+    "lib/kit-prep.ts",
+    "components/KitPrep.tsx",
+  ]);
+  assert.deepEqual(sharedFiles(["lib/a.ts"], ["lib/b.ts"]), []);
 });

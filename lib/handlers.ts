@@ -11,9 +11,9 @@ import {
   textModal,
   type Built,
 } from "./blocks";
-import { APPROVER_EMAIL, NOTES_FILES, OWNER_EMAIL, appByKey, personByEmail } from "./config";
+import { APPROVER_EMAIL, MAX_CATCH_UPS, NOTES_FILES, OWNER_EMAIL, appByKey, personByEmail } from "./config";
 import { assess, type Image } from "./claude";
-import { closeIssue, closePr, fileNow, mergePr, rebuild } from "./github";
+import { closeIssue, closePr, fileNow, mergePr, overlapSinceBuilt, rebuild } from "./github";
 import {
   allRequests,
   appOf,
@@ -281,6 +281,27 @@ async function sendProposal(l: Loaded, now = Date.now()): Promise<void> {
 async function approve(l: Loaded, u: Who): Promise<void> {
   const app = appOf(l);
   const name = await nameOf(u.id);
+  // Another change to the same files went live after this one was built: rebuild it on top first, so the two
+  // can't undo or break each other (Jamie, 19 Nov 2026). Twice at most, then it merges as it is.
+  if (l.card.catchUps < MAX_CATCH_UPS) {
+    const clash = await overlapSinceBuilt(app.repo, l.card.pr);
+    if (clash.length) {
+      l.card.catchUps++;
+      await rebuild(
+        app.repo,
+        l.card.issue,
+        `${name} approved this, but another change to the same files went live after it was built (${clash.slice(0, 5).join(", ")}). ` +
+          "The branch now includes that change: make sure this change still does what was asked alongside it, keep the other change intact, and run the checks again. Change nothing else.",
+      );
+      l.card.stage = "building";
+      l.card.startedAt = Date.now();
+      await save(l);
+      const title = l.card.summary?.title ?? "Change";
+      await settle(l.card.approvalChannel, l.card.approvalTs, title, "Another change to the same screen went live first, so I'm rebuilding this on top of it. You'll get it to approve again in about 15 minutes.");
+      await postInThread(l.channel, l.thread, "Another change to the same screen went live first, so I'm rebuilding this on top of it before it goes live. It'll come back for approval in about 15 minutes.");
+      return;
+    }
+  }
   let sha: string;
   try {
     sha = await mergePr(app.repo, l.card.pr);

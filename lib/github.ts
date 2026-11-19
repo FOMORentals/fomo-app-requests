@@ -84,6 +84,27 @@ export async function closePr(repo: string, pr: number): Promise<void> {
   await gh(`/repos/${OWNER}/${repo}/pulls/${pr}`, { method: "PATCH", body: { state: "closed" } });
 }
 
+/** Files touched by both lists: the clash risk between a waiting change and what went live since it was built. Pure. */
+export function sharedFiles(changed: string[], liveSince: string[]): string[] {
+  const live = new Set(liveSince);
+  return [...new Set(changed)].filter((f) => live.has(f));
+}
+
+/**
+ * Has anything gone live since this pull request was built that touches the same files?
+ * Returns those files (empty when it's safe to merge as it is).
+ */
+export async function overlapSinceBuilt(repo: string, pr: number): Promise<string[]> {
+  const p = (await (await gh(`/repos/${OWNER}/${repo}/pulls/${pr}`)).json()) as { head: { sha: string }; base: { ref: string } };
+  const cmp = (await (await gh(`/repos/${OWNER}/${repo}/compare/${p.head.sha}...${encodeURIComponent(p.base.ref)}?per_page=100`)).json()) as {
+    ahead_by: number;
+    files?: { filename: string }[];
+  };
+  if (!cmp.ahead_by) return [];
+  const mine = (await (await gh(`/repos/${OWNER}/${repo}/pulls/${pr}/files?per_page=100`)).json()) as { filename: string }[];
+  return sharedFiles(mine.map((f) => f.filename), (cmp.files ?? []).map((f) => f.filename));
+}
+
 /** Squash-merges an approved pull request. Returns the merge commit. */
 export async function mergePr(repo: string, pr: number): Promise<string> {
   const res = await gh(`/repos/${OWNER}/${repo}/pulls/${pr}/merge`, { method: "PUT", body: { merge_method: "squash" } });
