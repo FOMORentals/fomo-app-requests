@@ -63,3 +63,21 @@ change it here the same day (rule 7).
 - Small fixes tell the requester Sam checks them; only proposals mention Jamie.
 - If the live check for a merged change keeps erroring for 45 minutes, Jamie gets one DM saying why, instead of the error only reaching the logs.
 - Changes built side by side can't clash (Jamie, 19 Nov 2026: "as robust as possible"). When a change is approved, the bot checks whether another change to the same files went live after it was built. If so it isn't merged: it's rebuilt on top of the live version (the build robot merges the latest version in and Claude resolves any clash), and comes back for approval. Design notes and team-note pictures don't count as a clash (nearly every change edits them); if GitHub refuses the merge anyway, that also triggers the rebuild. At most twice, then it merges as it is. Chosen over a one-at-a-time queue, which would make a run of requests wait on each approval.
+
+## "Why is the app doing this?" questions (Jamie, 20 Nov 2026)
+- The team can ask why an app behaves the way it does (something not refreshing as expected, a button not doing
+  what they thought) in #app-requests itself, not a separate channel: the answer is often "that's broken, fix it",
+  and fixes already live here. Aim: they understand the right process, or they find something to fix and get it done.
+- If the design notes clearly answer it, Claude answers straight away. Otherwise it **looks into the app, read only**:
+  the "App question" workflow (`templates/app-question.yml`, copied into each app repo next to the build robot)
+  reads the code, design notes, recent changes, the live deploy's state and failed GitHub runs. It never changes
+  anything and never guesses.
+- It answers with one of four findings: **Working as designed** (explains the right process), **Looks broken**
+  (with a **Fix it** button; Jamie also gets an FYI DM), **Works, but could be better** (Make it a request), or
+  **Couldn't tell from the code** (Ask Jamie).
+- **Fix it** turns the question into a normal request with the findings already in the thread: the same summary,
+  ✅, small/bigger sorting and approvals as any other request. Nothing new skips Sam's or Jamie's tap.
+- Only on apps where small fixes can be built (they have the workflow). Other apps: the question goes to Jamie.
+  At most 2 looks per question, then Jamie. A look that doesn't report back in 45 minutes goes to Jamie.
+- Not yet: the apps' own server logs and refresh times (Vercel, Google Cloud, Firestore). The look says when its
+  answer depends on them. Adding them needs read-only access Jamie sets up; a separate decision.

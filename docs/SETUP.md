@@ -33,3 +33,10 @@ About 30 minutes. Nothing goes live until step 7.
 10. **Merge** the "App requests: build robot and design notes" pull requests in the four app repos.
 
 Try it: post a small request in `#app-requests` yourself.
+
+## Questions ("why is the app doing this?", 20 Nov 2026)
+
+No new secrets: the "App question" workflow uses the two the build robot already has (`CLAUDE_CODE_OAUTH_TOKEN`,
+`APP_REQUESTS_CALLBACK_SECRET`). Copy `templates/app-question.yml` to `.github/workflows/app-question.yml` in each of
+the four build repos (fomo-bookings-board-v2, fomo-overtime, fomo-whats-new, fomo-inventory-dashboard) and merge.
+Until a repo has it, a question about that app opens an issue nobody answers, and after 45 minutes it goes to Jamie.

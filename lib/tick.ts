@@ -3,7 +3,7 @@
  * 1. Requesters who went quiet: one nudge after 1 working day, closed after 3.
  * 2. Approvals and proposals nobody has tapped: one reminder to Sam and Jamie at 9:00 London the next working morning.
  * 3. Queued builds start when a slot frees up.
- * 4. Builds that never reported back are marked failed (rule 1).
+ * 4. Builds that never reported back are marked failed (rule 1). So are looks into the code (questions) after 45 minutes.
  * 5. Merged changes: checks the live deploy actually happened before saying "Live" (rule 5).
  * Runs at most 60 s (maxDuration) against a 15-minute interval, so two runs can't overlap and no lock is needed.
  * It stops itself at 50 s and logs INCOMPLETE (rule 2). One failure doesn't stop the rest; failures are counted (rule 1).
@@ -16,13 +16,14 @@ import { channel } from "./slack";
 import { addWorkingDays, isMorningSlot, londonDate } from "./time";
 
 const BUILD_TIMEOUT = 2 * 60 * 60_000;
+const LOOK_TIMEOUT = 45 * 60_000;
 const DEPLOY_WARN = 45 * 60_000;
 const BUDGET = 50_000;
 
 export type TickResult = { nudged: number; closed: number; reminded: number; started: number; live: number; failures: number; incomplete: boolean };
 
 /** What the cron should do with one request. Pure, tested. */
-export function due(l: Loaded, now: number): "nudge" | "close" | "remind" | "start" | "timeout" | "check_deploy" | null {
+export function due(l: Loaded, now: number): "nudge" | "close" | "remind" | "start" | "timeout" | "look_timeout" | "check_deploy" | null {
   const c = l.card;
   if ((c.stage === "grilling" || c.stage === "confirm") && c.askedAt) {
     if (now >= addWorkingDays(c.askedAt, 3)) return "close";
@@ -32,6 +33,7 @@ export function due(l: Loaded, now: number): "nudge" | "close" | "remind" | "sta
     return "remind";
   if (c.stage === "queued") return "start";
   if (c.stage === "building" && c.startedAt && now - c.startedAt > BUILD_TIMEOUT) return "timeout";
+  if (c.stage === "looking" && c.lookedAt && now - c.lookedAt > LOOK_TIMEOUT) return "look_timeout";
   if (c.stage === "deploying") return "check_deploy";
   return null;
 }
@@ -83,6 +85,14 @@ export async function runTick(now = Date.now()): Promise<TickResult> {
         await dm(OWNER_EMAIL, `A build didn't report back within 2 hours: "${c.summary?.title}". Check the "App request build" run on GitHub. ${await link(l)}`);
         r.failures++;
         report(new Error(`Build for ${l.card.app} #${c.issue} didn't report back`), "tick.build_timeout");
+      } else if (what === "look_timeout") {
+        c.stage = "handed";
+        c.note = "Looking into the app didn't report back within 45 minutes.";
+        await save(l);
+        await postInThread(l.channel, l.thread, `<@${c.requester}> I couldn't get to the bottom of this one in time, so I've passed it to Jamie.`);
+        await dm(OWNER_EMAIL, `A question didn't get an answer: the "App question" run for ${appOf(l).name} #${c.lookIssue} didn't report back within 45 minutes. ${await link(l)}`);
+        r.failures++;
+        report(new Error(`Question look for ${l.card.app} #${c.lookIssue} didn't report back`), "tick.look_timeout");
       } else if (what === "check_deploy") {
         const d = await productionDeploy(appOf(l).repo, c.mergeSha);
         if (d.state === "success") {

@@ -73,3 +73,36 @@ export function issueBody(o: {
   parts.push("", "<details><summary>FOMO engineering rules</summary>", "", o.rules, "", "</details>");
   return parts.join("\n");
 }
+
+/** The question the "App question" workflow looks into. Same marker as a build, so its report finds the thread. */
+export function questionIssueTitle(question: string): string {
+  const q = question.replace(/\s+/g, " ").trim();
+  return `App question: ${q.length > 90 ? `${q.slice(0, 87)}...` : q}`;
+}
+
+export function questionIssueBody(o: {
+  app: App;
+  requesterName: string;
+  link: string;
+  focus: string; // what Claude said it would look into
+  thread: string;
+  channel: string;
+  threadTs: string;
+}): string {
+  return [
+    refMarker(o.channel, o.threadTs),
+    `Asked by **${o.requesterName}** in Slack #app-requests: ${o.link}`,
+    `App: **${o.app.name}**. This is a question, not a change: look, don't touch.`,
+    "",
+    "## What to look into",
+    o.focus || "Why the app behaves the way the requester describes in the thread below.",
+    "",
+    "<details><summary>The Slack thread</summary>",
+    "",
+    "```",
+    o.thread.replace(/```/g, "'''"),
+    "```",
+    "",
+    "</details>",
+  ].join("\n");
+}
