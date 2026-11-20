@@ -81,6 +81,10 @@ change it here the same day (rule 7).
   Inventory dashboard, Client portal, Website, Kit onboarding, Consignor portal and App requests itself. Not
   Cloud Function, Rentman core, Gmail connector or Status dashboard: those questions go to Jamie. On a
   proposals-only app, Fix it becomes a proposal for Jamie as usual.
+- A question about the Team Dashboard also reads the Cloud Function's code, read only (Jamie, 20 Nov 2026, after
+  the first real question, Spike Wright's job 12084 on Needs Ticket Link, came back "Couldn't tell" because the
+  matching happens in the Cloud Function's Rentman linker). Fixes there still go to Jamie; questions about the
+  Cloud Function on its own still go to Jamie. Whether its last push deployed can't be seen from the look.
   At most 2 looks per question, then Jamie. A look that doesn't report back in 45 minutes goes to Jamie.
 - Not yet: the apps' own server logs and refresh times (Vercel, Google Cloud, Firestore). The look says when its
   answer depends on them. Adding them needs read-only access Jamie sets up; a separate decision.

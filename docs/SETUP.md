@@ -42,3 +42,10 @@ fomo-rentals-website-rebuild, fomo-kit-onboarding, fomo-consignor-portal and fom
 Secrets and variables → Actions). `templates/app-question.yml` is copied to `.github/workflows/app-question.yml` in
 all nine repos.
 Until a repo has it, a question about that app opens an issue nobody answers, and after 45 minutes it goes to Jamie.
+All nine set 20 Nov 2026; the callback secret was rotated that day on all nine and Vercel `BUILD_CALLBACK_SECRET`
+(Production), so the two must be changed together.
+
+Team Dashboard questions also read fomo-cloud-function: a read-only deploy key on fomo-cloud-function (Settings →
+Deploy keys, "app-question read only", write access off) whose private half is the secret `CLOUD_FUNCTION_READ_KEY`
+on fomo-bookings-board-v2. Without it the look still runs on the board's code alone and says it couldn't read
+the Cloud Function.
