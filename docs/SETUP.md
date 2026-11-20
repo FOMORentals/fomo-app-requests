@@ -36,7 +36,9 @@ Try it: post a small request in `#app-requests` yourself.
 
 ## Questions ("why is the app doing this?", 20 Nov 2026)
 
-No new secrets: the "App question" workflow uses the two the build robot already has (`CLAUDE_CODE_OAUTH_TOKEN`,
-`APP_REQUESTS_CALLBACK_SECRET`). Copy `templates/app-question.yml` to `.github/workflows/app-question.yml` in each of
-the four build repos (fomo-bookings-board-v2, fomo-overtime, fomo-whats-new, fomo-inventory-dashboard) and merge.
+The "App question" workflow uses two secrets: `CLAUDE_CODE_OAUTH_TOKEN` and `APP_REQUESTS_CALLBACK_SECRET` (same values
+as the build repos). The four build repos already have them. Add both to fomo-client-portal,
+fomo-rentals-website-rebuild, fomo-kit-onboarding, fomo-consignor-portal and fomo-app-requests (repo → Settings →
+Secrets and variables → Actions). `templates/app-question.yml` is copied to `.github/workflows/app-question.yml` in
+all nine repos.
 Until a repo has it, a question about that app opens an issue nobody answers, and after 45 minutes it goes to Jamie.

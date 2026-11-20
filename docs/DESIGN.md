@@ -77,7 +77,10 @@ change it here the same day (rule 7).
   **Couldn't tell from the code** (Ask Jamie).
 - **Fix it** turns the question into a normal request with the findings already in the thread: the same summary,
   ✅, small/bigger sorting and approvals as any other request. Nothing new skips Sam's or Jamie's tap.
-- Only on apps where small fixes can be built (they have the workflow). Other apps: the question goes to Jamie.
+- Every app the team can ask about can be looked into (Jamie, 20 Nov 2026): Team Dashboard, Overtime, What's new,
+  Inventory dashboard, Client portal, Website, Kit onboarding, Consignor portal and App requests itself. Not
+  Cloud Function, Rentman core, Gmail connector or Status dashboard: those questions go to Jamie. On a
+  proposals-only app, Fix it becomes a proposal for Jamie as usual.
   At most 2 looks per question, then Jamie. A look that doesn't report back in 45 minutes goes to Jamie.
 - Not yet: the apps' own server logs and refresh times (Vercel, Google Cloud, Firestore). The look says when its
   answer depends on them. Adding them needs read-only access Jamie sets up; a separate decision.
