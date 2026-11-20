@@ -42,14 +42,27 @@ export async function fileNow(repo: string, path: string): Promise<string | null
 }
 
 export const BUILD_LABEL = "app-request";
+/** Starts the repo's "App question" workflow: Claude reads the code, read only, and reports what it found. */
+export const QUESTION_LABEL = "app-question";
 
-async function ensureLabel(repo: string): Promise<void> {
-  const res = await gh(`/repos/${OWNER}/${repo}/labels/${BUILD_LABEL}`, { allow404: true });
+const LABELS: Record<string, { color: string; description: string }> = {
+  [BUILD_LABEL]: { color: "5319e7", description: "Built by Claude from #app-requests" },
+  [QUESTION_LABEL]: { color: "0e8a16", description: "Looked into by Claude from #app-requests (read only)" },
+};
+
+async function ensureLabel(repo: string, name = BUILD_LABEL): Promise<void> {
+  const res = await gh(`/repos/${OWNER}/${repo}/labels/${name}`, { allow404: true });
   if (res.status !== 404) return;
-  await gh(`/repos/${OWNER}/${repo}/labels`, {
-    method: "POST",
-    body: { name: BUILD_LABEL, color: "5319e7", description: "Built by Claude from #app-requests" },
-  });
+  await gh(`/repos/${OWNER}/${repo}/labels`, { method: "POST", body: { name, ...LABELS[name] } });
+}
+
+/** Opens the question issue; its label starts the repo's "App question" workflow, which closes it when done. */
+export async function openQuestionIssue(repo: string, title: string, body: string): Promise<{ number: number; url: string }> {
+  await ensureLabel(repo, QUESTION_LABEL);
+  const res = await gh(`/repos/${OWNER}/${repo}/issues`, { method: "POST", body: { title, body } });
+  const issue = (await res.json()) as { number: number; html_url: string };
+  await gh(`/repos/${OWNER}/${repo}/issues/${issue.number}/labels`, { method: "POST", body: { labels: [QUESTION_LABEL] } });
+  return { number: issue.number, url: issue.html_url };
 }
 
 /** Opens the build issue. Adding the label starts the repo's "App request build" workflow. */

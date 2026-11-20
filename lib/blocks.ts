@@ -22,6 +22,7 @@ const STEP_OF: Partial<Record<Stage, number>> = {
 
 const ENDINGS: Partial<Record<Stage, string>> = {
   answered: "Answered, no change needed",
+  explained: "Answered: I looked into the app",
   handed: "Passed to Jamie",
   parked: "Not now (Jamie)",
   declined: "Declined",
@@ -31,6 +32,7 @@ const ENDINGS: Partial<Record<Stage, string>> = {
 
 /** The one status line Claude keeps updated at the top of the thread. */
 export function statusLine(stage: Stage, waitingOn = ""): string {
+  if (stage === "looking") return "*Status:* Received → *Looking into it* → Answered";
   const end = ENDINGS[stage];
   if (end) return `*Status:* ${end}`;
   const at = STEP_OF[stage] ?? 0;
@@ -44,6 +46,7 @@ export function cardBlocks(c: Card, app: App | undefined): Block[] {
   const blocks: Block[] = [{ type: "section", text: { type: "mrkdwn", text: statusLine(c.stage, waitingOn) } }];
   const ctx = [...bits];
   if (c.prUrl && (c.stage === "approval" || c.stage === "deploying" || c.stage === "live")) ctx.push(`<${c.prUrl}|The change>`);
+  if (c.stage === "explained" && c.verdict) ctx.push(VERDICTS[c.verdict].label);
   if (c.stage === "failed" && c.note) ctx.push(c.note);
   if (c.stage === "declined" && c.note) ctx.push(`Why: ${c.note}`);
   if (ctx.length) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: ctx.join(" · ") }] });
@@ -102,6 +105,60 @@ export function answerBlocks(requester: string, text: string): Block[] {
     { type: "section", text: { type: "mrkdwn", text: `<@${requester}> ${text}` } },
     { type: "context", elements: [{ type: "mrkdwn", text: "Not what you meant? Reply in this thread." }] },
   ];
+}
+
+export type Verdict = "as_designed" | "broken" | "should_change" | "unsure";
+
+/** How each finding is labelled, and the buttons the requester gets (Jamie, 20 Nov 2026). */
+export const VERDICTS: Record<Verdict, { label: string; buttons: { id: string; text: string; primary?: boolean }[] }> = {
+  as_designed: {
+    label: "🔵 Working as designed",
+    buttons: [
+      { id: "q_ok", text: "👍 That answers it", primary: true },
+      { id: "q_fix", text: "That's not how it should work: suggest a change" },
+    ],
+  },
+  broken: {
+    label: "🔴 Looks broken",
+    buttons: [
+      { id: "q_fix", text: "🔧 Fix it", primary: true },
+      { id: "q_jamie", text: "Just tell Jamie" },
+    ],
+  },
+  should_change: {
+    label: "🟠 Works, but could be better",
+    buttons: [
+      { id: "q_fix", text: "Make it a request", primary: true },
+      { id: "q_ok", text: "Leave it as it is" },
+    ],
+  },
+  unsure: {
+    label: "⚪ Couldn't tell from the code",
+    buttons: [
+      { id: "q_jamie", text: "Ask Jamie", primary: true },
+      { id: "q_ok", text: "Leave it" },
+    ],
+  },
+};
+
+/** While the app's code is being looked into. */
+export function lookingBlocks(requester: string, focus: string): Block[] {
+  return [
+    { type: "section", text: { type: "mrkdwn", text: `<@${requester}> good question. ${focus ? `${focus} ` : ""}I'm looking into the app now (read only, nothing changes). This usually takes 5 to 15 minutes.` } },
+  ];
+}
+
+/** What the look found, with the requester's next step. */
+export function verdictBlocks(o: { requester: string; verdict: Verdict; answer: string; checked: string; value: string }): Block[] {
+  const v = VERDICTS[o.verdict];
+  const blocks: Block[] = [{ type: "section", text: { type: "mrkdwn", text: `<@${o.requester}> *${v.label}*\n${o.answer}` } }];
+  if (o.checked) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Checked: ${o.checked}` }] });
+  blocks.push({
+    type: "actions",
+    elements: v.buttons.map((b) => ({ type: "button", action_id: b.id, text: { type: "plain_text", text: b.text }, value: o.value, ...(b.primary ? { style: "primary" } : {}) })),
+  });
+  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Still not clear? Reply in this thread." }] });
+  return blocks;
 }
 
 export type Built = { changed: string; checks: "passed" | "failed"; preview: string; prUrl: string };

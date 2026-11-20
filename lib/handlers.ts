@@ -5,15 +5,19 @@ import {
   approvalBlocks,
   doneBlocks,
   failedBlocks,
+  lookingBlocks,
   proposalBlocks,
   questionBlocks,
   summaryBlocks,
   textModal,
+  verdictBlocks,
   type Built,
+  type Verdict,
 } from "./blocks";
-import { APPROVER_EMAIL, MAX_CATCH_UPS, NOTES_FILES, OWNER_EMAIL, appByKey, personByEmail } from "./config";
+import { APPROVER_EMAIL, MAX_CATCH_UPS, MAX_LOOKS, NOTES_FILES, OWNER_EMAIL, appByKey, canLookInto, personByEmail } from "./config";
 import { assess, type Image } from "./claude";
-import { closeIssue, closePr, fileNow, mergePr, overlapSinceBuilt, rebuild } from "./github";
+import { closeIssue, closePr, fileNow, mergePr, openQuestionIssue, overlapSinceBuilt, rebuild } from "./github";
+import { questionIssueBody, questionIssueTitle } from "./issue";
 import {
   allRequests,
   appOf,
@@ -93,7 +97,7 @@ export async function turn(l: Loaded, now = Date.now()): Promise<void> {
   try {
     const thread = transcript(await threadLines(l));
     const pics = await images(l);
-    const run = async (appKey: string) => assess({ notes: await notesFor(appKey), thread, turn: turnPrompt(l.card.round, appKey), images: pics });
+    const run = async (appKey: string) => assess({ notes: await notesFor(appKey), thread, turn: turnPrompt(l.card.round, appKey, l.card.fixing), images: pics });
     let a: Assessment = await run(l.card.app);
     // First time the app is known: read again, this time with that app's design notes.
     if (appByKey(a.app) && a.app !== l.card.app) {
@@ -102,7 +106,7 @@ export async function turn(l: Loaded, now = Date.now()): Promise<void> {
       if (appByKey(a.app)) l.card.app = a.app;
     }
     const app = appByKey(l.card.app);
-    a = enforce(a, l.card.round, app);
+    a = enforce(a, l.card.round, app, l.card.fixing);
     await act(l, a, now);
   } catch (err) {
     report(err, "turn", { thread: l.thread });
@@ -136,15 +140,46 @@ async function act(l: Loaded, a: Assessment, now: number): Promise<void> {
     c.size = a.size;
     const text = `Here's what I'll do: ${a.summary.title}. ${a.summary.plan}`;
     await postInThread(l.channel, l.thread, text, summaryBlocks(c.requester, a, app, encodeRef(l)));
+  } else if (a.next === "investigate" && canLookInto(app) && c.looks < MAX_LOOKS) {
+    await startLook(l, app, a.how_to, now);
+    return;
   } else {
-    const handed = !app || app.mode === "not_offered";
+    const handed = !app || app.mode === "not_offered" || a.next === "investigate";
     c.stage = handed ? "handed" : "answered";
     c.askedAt = 0;
-    const text = a.how_to || (handed ? "That one's for Jamie, so I've passed it to him." : "The app already does this.");
+    const cantLook =
+      a.next !== "investigate"
+        ? ""
+        : !app
+          ? "I couldn't work out which app this is about, so I've passed your question to Jamie."
+          : c.looks >= MAX_LOOKS
+            ? `I've already looked into ${app.name} twice for this, so I've passed it to Jamie to pick up.`
+            : `I can't look inside ${app.name} myself yet, so I've passed your question to Jamie.`;
+    const text = cantLook || a.how_to || (handed ? "That one's for Jamie, so I've passed it to him." : "The app already does this.");
     await postInThread(l.channel, l.thread, text, answerBlocks(c.requester, text));
     if (handed) await dm(OWNER_EMAIL, `A request for you from ${await nameOf(c.requester)}: ${await link(l)}`);
   }
   await save(l);
+}
+
+/** A "why is the app doing this?" question: opens the issue that starts the app's read-only "App question" workflow. */
+async function startLook(l: Loaded, app: NonNullable<ReturnType<typeof appByKey>>, focus: string, now: number): Promise<void> {
+  const c = l.card;
+  const thread = transcript(await threadLines(l));
+  const first = l.messages.find((m) => m.ts === l.thread)?.text ?? focus;
+  const issue = await openQuestionIssue(
+    app.repo,
+    questionIssueTitle(first),
+    questionIssueBody({ app, requesterName: await nameOf(c.requester), link: await link(l), focus, thread, channel: l.channel, threadTs: l.thread }),
+  );
+  c.stage = "looking";
+  c.looks += 1;
+  c.lookIssue = issue.number;
+  c.lookedAt = now;
+  c.askedAt = 0;
+  c.verdict = "";
+  await save(l);
+  await postInThread(l.channel, l.thread, `Looking into it. ${focus}`, lookingBlocks(c.requester, focus));
 }
 
 // ---------- Buttons and forms ----------
@@ -210,6 +245,33 @@ export async function handleInteraction(p: any): Promise<object | null> {
         }
         await proposalDecision(l, action.action_id, u);
         return null;
+      case "q_ok":
+      case "q_fix":
+      case "q_jamie": {
+        if (u.id !== l.card.requester && !u.isOwner && !u.isApprover) { await deny("Only the person who asked can choose this."); return null; }
+        if (l.card.stage !== "explained") return null;
+        const chose = action.action_id === "q_ok" ? "👍 Answered" : action.action_id === "q_fix" ? "🔧 Asked for a fix" : "Passed to Jamie";
+        await slack("chat.update", { channel: p.channel.id, ts: p.message.ts, text: chose, blocks: [...p.message.blocks.filter((b: { type: string }) => b.type !== "actions"), { type: "context", elements: [{ type: "mrkdwn", text: `${chose} by <@${u.id}>` }] }] });
+        if (action.action_id === "q_ok") {
+          l.card.stage = "answered";
+          await save(l);
+          return null;
+        }
+        if (action.action_id === "q_jamie") {
+          l.card.stage = "handed";
+          await save(l);
+          await dm(OWNER_EMAIL, `A question for you from ${await nameOf(l.card.requester)}, after I looked into the app: ${await link(l)}`);
+          await postInThread(l.channel, l.thread, "I've passed this to Jamie with what I found.");
+          return null;
+        }
+        // Fix it: the question becomes a change request, with the findings already in the thread (Jamie, 20 Nov 2026).
+        l.card.fixing = true;
+        l.card.round = 0;
+        l.card.stage = "grilling";
+        await save(l);
+        await postInThread(l.channel, l.thread, "Turning this into a request, using what I found.");
+        return { after: () => turn(l) };
+      }
       case "sam_comment":
         if (!u.isApprover && !u.isOwner) return null;
         await modal("sam_comment", "Comment for Jamie", "Your comment", "Send");
@@ -444,3 +506,43 @@ export async function handleBuildReport(r: BuildReport, now = Date.now()): Promi
   }
 }
 
+
+// ---------- The look-into-it report ----------
+
+export type QuestionReport = {
+  channel: string;
+  thread: string;
+  repo: string;
+  issue: number;
+  outcome: "answered" | "failed";
+  verdict?: Verdict;
+  answer?: string;
+  checked?: string;
+  reason?: string;
+  runUrl: string;
+};
+
+const VERDICT_KEYS: Verdict[] = ["as_designed", "broken", "should_change", "unsure"];
+
+export async function handleQuestionReport(r: QuestionReport): Promise<void> {
+  const l = await load(r.channel, r.thread);
+  if (!l) throw new Error(`Question report for ${r.repo}#${r.issue}: request not found`);
+  if (l.card.lookIssue !== r.issue || appOf(l).repo.toLowerCase() !== r.repo.toLowerCase()) throw new Error(`Question report for ${r.repo}#${r.issue} doesn't match the request`);
+  if (l.card.stage !== "looking") return; // a late report
+  const verdict = r.verdict && VERDICT_KEYS.includes(r.verdict) ? r.verdict : null;
+  if (r.outcome === "answered" && verdict && r.answer?.trim()) {
+    l.card.stage = "explained";
+    l.card.verdict = verdict;
+    await save(l);
+    const answer = r.answer.trim().slice(0, 2800);
+    await postInThread(l.channel, l.thread, answer, verdictBlocks({ requester: l.card.requester, verdict, answer, checked: (r.checked ?? "").trim().slice(0, 400), value: encodeRef(l) }));
+    // Something broken goes to Jamie too, whatever the requester taps (rule 1: nothing fails silently).
+    if (verdict === "broken") await dm(OWNER_EMAIL, `FYI: ${await nameOf(l.card.requester)} asked about ${appOf(l).name} and I found something that looks broken. ${await link(l)}`);
+    return;
+  }
+  l.card.stage = "handed";
+  l.card.note = (r.reason || "the look into the app didn't finish").slice(0, 300);
+  await save(l);
+  await dm(OWNER_EMAIL, `I couldn't finish looking into a question about ${appOf(l).name}: ${l.card.note}. ${r.runUrl} ${await link(l)}`);
+  await postInThread(l.channel, l.thread, `<@${l.card.requester}> I couldn't get to the bottom of this one, so I've passed it to Jamie.`);
+}

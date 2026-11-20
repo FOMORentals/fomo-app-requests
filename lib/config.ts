@@ -68,6 +68,16 @@ export const NOTES_FILES = ["docs/DESIGN.md", "CLAUDE.md"];
 export const MAX_BUILDS = 3;
 /** Times an approved change is rebuilt on top of others that went live first, before it merges as it is. */
 export const MAX_CATCH_UPS = 2;
+/**
+ * "Why is the app doing this?" questions (Jamie, 20 Nov 2026): Claude reads the app's code on GitHub, read only.
+ * Only on apps that have the "App question" workflow, which is the apps where small fixes can be built.
+ */
+export function canLookInto(app: App | undefined): app is App {
+  return app?.mode === "build";
+}
+/** At most this many looks into the code per question, then it goes to Jamie. */
+export const MAX_LOOKS = 2;
+
 /** Grill: at most this many rounds, of at most this many questions. */
 export const MAX_ROUNDS = 2;
 export const MAX_QUESTIONS = 3;

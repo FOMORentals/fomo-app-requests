@@ -12,6 +12,8 @@ export type Stage =
   | "grilling" // Claude asked questions; waiting on the requester
   | "confirm" // summary posted; waiting for the requester's ✅
   | "answered" // the app already does it, or it was a question: no change needed
+  | "looking" // a "why is the app doing this?" question: GitHub is reading the app's code (read only)
+  | "explained" // the look-into-it verdict is posted; waiting for the requester's tap (or nothing)
   | "handed" // an app the team can't request changes to: passed to Jamie
   | "queued" // confirmed small fix, waiting for a free build slot
   | "building" // GitHub is building it
@@ -63,6 +65,11 @@ export type Card = {
   mergedAt: number;
   catchUps: number; // times rebuilt on top of other changes that went live first
   note: string; // last outcome, e.g. why a build failed
+  looks: number; // times the app's code was looked into for this question
+  lookIssue: number; // the GitHub issue that started the latest look
+  lookedAt: number; // the latest look started (ms)
+  verdict: "" | "as_designed" | "broken" | "should_change" | "unsure"; // what the latest look found
+  fixing: boolean; // the requester tapped Fix it: the question is now a change request
 };
 
 export function newCard(requester: string): Card {
@@ -96,11 +103,16 @@ export function newCard(requester: string): Card {
     mergedAt: 0,
     catchUps: 0,
     note: "",
+    looks: 0,
+    lookIssue: 0,
+    lookedAt: 0,
+    verdict: "",
+    fixing: false,
   };
 }
 
-const NUMS = ["round", "askedAt", "issue", "pr", "pendingSince", "startedAt", "mergedAt", "catchUps"] as const;
-const BOOLS = ["nudged", "noDecision", "reminded"] as const;
+const NUMS = ["round", "askedAt", "issue", "pr", "pendingSince", "startedAt", "mergedAt", "catchUps", "looks", "lookIssue", "lookedAt"] as const;
+const BOOLS = ["nudged", "noDecision", "reminded", "fixing"] as const;
 
 export function cardMeta(c: Card): Meta {
   const p: Record<string, string> = {};
@@ -157,5 +169,5 @@ export function usesBuildSlot(s: Stage): boolean {
 
 /** Stages where the requester's reply in the thread restarts the questions. */
 export function reopensOnReply(s: Stage): boolean {
-  return s === "grilling" || s === "confirm" || s === "answered" || s === "closed";
+  return s === "grilling" || s === "confirm" || s === "answered" || s === "explained" || s === "closed";
 }

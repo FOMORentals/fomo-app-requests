@@ -4,7 +4,8 @@ Read `../FOMO-ENGINEERING-RULES.md` first when it is there (a copy for the build
 `rules/FOMO-ENGINEERING-RULES.md`; change both). Jamie is not an engineer: explain in business terms.
 
 What this is: the team asks for app changes in Slack #app-requests. Claude asks a few questions, checks the
-request against Jamie's recorded decisions, and either answers it, builds a small fix (a GitHub issue in the
+request against Jamie's recorded decisions, and either answers it, looks into the app's code to answer a "why is the app
+doing this?" question (read only, 20 Nov 2026), builds a small fix (a GitHub issue in the
 app's repo that the "App request build" workflow turns into a pull request for Sam to approve), or sends a
 proposal to Jamie. Designed with Jamie on 17 Nov 2026. Decisions are in `docs/DESIGN.md`; keep it current.
 Setup: `docs/SETUP.md`.
@@ -14,7 +15,8 @@ Setup: `docs/SETUP.md`.
 - `lib/handlers.ts` Slack messages, buttons, forms, build reports. `lib/actions.ts` side effects.
 - `lib/tick.ts` the 15-minute cron (nudges, reminders, queued builds, timeouts, live checks).
 - `lib/records.ts` the request's state, stored as metadata on the bot's card in the thread (Slack is the database).
-- `templates/` the two workflows copied into each app repo: `app-request-build.yml` (the build robot) and
+- `templates/` the workflows copied into each app repo: `app-request-build.yml` (the build robot),
+  `app-question.yml` (looks into a question, read only, reports to `/api/question/callback`) and
   `design-notes.yml` (the "Design notes" check).
 
 External calls: Slack, GitHub, Anthropic. Nothing else.
