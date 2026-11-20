@@ -70,10 +70,11 @@ export const MAX_BUILDS = 3;
 export const MAX_CATCH_UPS = 2;
 /**
  * "Why is the app doing this?" questions (Jamie, 20 Nov 2026): Claude reads the app's code on GitHub, read only.
- * Only on apps that have the "App question" workflow, which is the apps where small fixes can be built.
+ * Every app the team can ask about (build and proposal apps), each with the "App question" workflow. Not the
+ * behind-the-scenes ones (Cloud Function, Rentman core, Gmail connector, Status dashboard): Jamie, 20 Nov 2026.
  */
 export function canLookInto(app: App | undefined): app is App {
-  return app?.mode === "build";
+  return !!app && app.mode !== "not_offered";
 }
 /** At most this many looks into the code per question, then it goes to Jamie. */
 export const MAX_LOOKS = 2;

@@ -33,7 +33,8 @@ test("Claude is told about why-questions and to look rather than guess", () => {
 test("a why-question on an app with the look-into-it robot stays a look", () => {
   assert.equal(enforce(q, 0, appByKey("dashboard")).next, "investigate");
   assert.ok(canLookInto(appByKey("dashboard")));
-  assert.ok(!canLookInto(appByKey("portal")));
+  for (const k of ["portal", "website", "kit", "consignor", "requests", "overtime", "whatsnew", "inventory"]) assert.ok(canLookInto(appByKey(k)), k);
+  for (const k of ["function", "rentmancore", "gmail", "status"]) assert.ok(!canLookInto(appByKey(k)), k);
 });
 
 test("no app known: ask which app first, while a round is left", () => {
