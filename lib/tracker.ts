@@ -108,8 +108,14 @@ export function statusOf(c: Card): string {
     case "closed":
       return ":white_circle: Closed (no reply)";
     case "failed":
-      return `:red_circle: Failed${c.note ? ` (${c.note.replace(/\.$/, "")})` : ""}`;
+      return `:red_circle: Failed${c.note ? ` (${shortNote(c.note)})` : ""}`;
   }
+}
+
+/** A failure reason short enough for one cell: its first clause, at most 80 characters. The thread has the rest. Pure. */
+export function shortNote(note: string): string {
+  const first = note.split(/[.:;(]\s|\n/)[0].replace(/[.,:;\s]+$/, "").trim();
+  return first.length > 80 ? first.slice(0, 77).replace(/\s+\S*$/, "") + "…" : first;
 }
 
 /** "Mon 23 Nov", London. Pure. */
@@ -208,13 +214,24 @@ export async function refreshTracker(all?: Loaded[], now = Date.now()): Promise<
   }
 }
 
+export const CANVAS_TITLE = "Request tracker";
+let titled = false;
+
+/** Names the canvas (its tab label), once per server start: Slack calls a new channel canvas "Untitled canvas". */
+async function nameCanvas(id: string): Promise<void> {
+  if (titled) return;
+  await slack("canvases.edit", { canvas_id: id, changes: [{ operation: "rename", title_content: { type: "markdown", markdown: CANVAS_TITLE } }] });
+  titled = true;
+}
+
 /** Writes the channel canvas, creating it the first time. Refuses to overwrite a canvas someone else wrote. */
 async function writeCanvas(ch: string, markdown: string): Promise<void> {
   const document_content = { type: "markdown", markdown };
   const info = await slack<{ channel: { properties?: { canvas?: { file_id?: string; is_empty?: boolean } } } }>("conversations.info", { channel: ch });
   const existing = info.channel.properties?.canvas;
   if (!existing?.file_id) {
-    await slack("conversations.canvases.create", { channel_id: ch, document_content });
+    const made = await slack<{ canvas_id: string }>("conversations.canvases.create", { channel_id: ch, document_content });
+    await nameCanvas(made.canvas_id);
     return;
   }
   if (!existing.is_empty) {
@@ -222,4 +239,5 @@ async function writeCanvas(ch: string, markdown: string): Promise<void> {
     if (!found.sections?.length) throw new Error(`#app-requests already has a canvas (${existing.file_id}) that the bot didn't write; not overwriting it`);
   }
   await slack("canvases.edit", { canvas_id: existing.file_id, changes: [{ operation: "replace", document_content }] });
+  await nameCanvas(existing.file_id);
 }
