@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { approvalBlocks, proposalBlocks, statusLine, summaryBlocks } from "./blocks";
+import { approvalBlocks, proposalBlocks, questionBlocks, statusLine, summaryBlocks, textModal } from "./blocks";
 import { appByKey } from "./config";
 import { newCard } from "./records";
 import type { Assessment } from "./prompt";
@@ -41,4 +41,26 @@ test("Jamie's proposal has four choices; Sam's copy can only comment", () => {
   assert.deepEqual(ids(false), ["build_it", "discuss", "not_now", "decline"]);
   assert.deepEqual(ids(true), ["sam_comment"]);
   assert.ok(JSON.stringify(proposalBlocks({ ...base, forSam: false })).includes("No Rentman calls"));
+});
+
+test("questions spell out what only a person can supply, separately from the numbered ones", () => {
+  const a = { questions: [], needs: [{ what: "Create a Yes/No field called In house prep on Projects", where: "Rentman: Settings, Extra input fields. The ID is the first column.", value: "" }], contradiction: { found: false }, reply_note: "" } as unknown as Assessment;
+  const text = JSON.stringify(questionBlocks("U1", a, 1));
+  assert.ok(text.includes("Before this can be built, I need you to"));
+  assert.ok(text.includes("In house prep"));
+  assert.ok(text.includes("just the ID number"));
+});
+
+test("the summary shows the ID it will use; Jamie's proposal shows what's still missing", () => {
+  const a = { tier: "small", bigger_reasons: [], summary, contradiction: { found: false }, recorded_decision_found: true, reply_note: "", needs: [{ what: "In house prep field ID", where: "", value: "54" }] } as unknown as Assessment;
+  assert.ok(JSON.stringify(summaryBlocks("U1", a, appByKey("dashboard")!, "C|1")).includes("In house prep field ID: *54*"));
+  const card = { ...newCard("U1"), needs: [{ what: "In house prep field ID", where: "Rentman", value: "" }] };
+  const p = JSON.stringify(proposalBlocks({ app: appByKey("dashboard")!, requester: "U1", summary, card, size: "S", link: "x", value: "C|1", forSam: false }));
+  assert.ok(p.includes("Needed before it can be built"));
+  assert.ok(p.includes("Build it will ask you for this first"));
+});
+
+test("Try again's form can be left empty", () => {
+  const m = textModal({ callbackId: "retry", title: "Try again", label: "x", submit: "Try again", value: "C|1", optional: true });
+  assert.equal(m.blocks[0].optional, true);
 });

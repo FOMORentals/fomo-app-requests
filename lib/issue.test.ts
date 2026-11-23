@@ -30,3 +30,11 @@ test("a proposal Jamie said to build carries his go-ahead for the reasons it was
   const small = issueBody({ app: appByKey("dashboard")!, card: { ...card, tier: "small" as const }, requesterName: "Will", approverName: "Sam", link: "https://x", thread: "t", channel: "C1", threadTs: "1.2", rules: "RULES", jamieApproved: false, today: "2026-11-19" });
   assert.doesNotMatch(small, /Jamie's go-ahead/);
 });
+
+test("the builder gets the details the team supplied, and is told never to guess one", () => {
+  const card = { ...newCard("U1"), tier: "bigger" as const, summary, needs: [{ what: "The In house prep field's ID", where: "Rentman", value: "54" }] };
+  const body = issueBody({ app: appByKey("dashboard")!, card, requesterName: "Louis", approverName: "Jamie", link: "https://x", thread: "t", channel: "C1", threadTs: "1.2", rules: "RULES", jamieApproved: true, today: "2026-11-23" });
+  assert.match(body, /## Details the team supplied/);
+  assert.match(body, /In house prep field's ID: \*\*54\*\*/);
+  assert.match(body, /never guess it/);
+});

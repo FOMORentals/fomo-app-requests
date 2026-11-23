@@ -3,6 +3,7 @@
  * bot's status message in the request's thread: one source of truth, nothing else to keep in sync.
  * Pure (de)serialisers, tested.
  */
+import type { Need } from "./prompt";
 import type { Meta } from "./slack";
 
 export const CARD = "ar_request";
@@ -70,6 +71,7 @@ export type Card = {
   lookedAt: number; // the latest look started (ms)
   verdict: "" | "as_designed" | "broken" | "should_change" | "unsure"; // what the latest look found
   fixing: boolean; // the requester tapped Fix it: the question is now a change request
+  needs: Need[]; // what only a person can supply (e.g. a Rentman field's ID), with the answers given (23 Nov 2026)
 };
 
 export function newCard(requester: string): Card {
@@ -108,16 +110,19 @@ export function newCard(requester: string): Card {
     lookedAt: 0,
     verdict: "",
     fixing: false,
+    needs: [],
   };
 }
 
 const NUMS = ["round", "askedAt", "issue", "pr", "pendingSince", "startedAt", "mergedAt", "catchUps", "looks", "lookIssue", "lookedAt"] as const;
 const BOOLS = ["nudged", "noDecision", "reminded", "fixing"] as const;
+const JSONS = ["summary", "needs"] as const;
 
 export function cardMeta(c: Card): Meta {
   const p: Record<string, string> = {};
   for (const [k, v] of Object.entries(c)) {
     if (k === "summary") p[k] = v ? JSON.stringify(v) : "";
+    else if (k === "needs") p[k] = JSON.stringify(v);
     else if (typeof v === "boolean") p[k] = v ? "1" : "0";
     else p[k] = String(v);
   }
@@ -134,11 +139,12 @@ export function readCard(meta: Meta | undefined): Card | null {
     if (v === undefined) continue;
     if ((NUMS as readonly string[]).includes(k)) c[k] = Number(v) || 0;
     else if ((BOOLS as readonly string[]).includes(k)) c[k] = v === "1";
-    else if (k === "summary") {
+    else if ((JSONS as readonly string[]).includes(k)) {
+      const empty = k === "needs" ? [] : null;
       try {
-        c[k] = v ? JSON.parse(v) : null;
+        c[k] = v ? JSON.parse(v) : empty;
       } catch {
-        c[k] = null;
+        c[k] = empty;
       }
     } else c[k] = v;
   }

@@ -64,6 +64,21 @@ change it here the same day (rule 7).
 - If the live check for a merged change keeps erroring for 45 minutes, Jamie gets one DM saying why, instead of the error only reaching the logs.
 - Changes built side by side can't clash (Jamie, 19 Nov 2026: "as robust as possible"). When a change is approved, the bot checks whether another change to the same files went live after it was built. If so it isn't merged: it's rebuilt on top of the live version (the build robot merges the latest version in and Claude resolves any clash), and comes back for approval. Design notes and team-note pictures don't count as a clash (nearly every change edits them); if GitHub refuses the merge anyway, that also triggers the rebuild. At most twice, then it merges as it is. Chosen over a one-at-a-time queue, which would make a run of requests wait on each approval.
 
+## Things only a person can supply (Jamie, 23 Nov 2026)
+- After Louis's "In-house prep" request failed at build because nobody had been asked for the Rentman field's ID:
+  when a change needs something only a person can create or look up (most often a Rentman extra input field and its
+  ID; also a HubSpot property, a Slack channel, a sheet link, a wording or price), Claude says so in so many words,
+  in its own "Before this can be built, I need you to" box, separate from the numbered questions: what to create
+  (name, Projects / Contacts / Equipment, type) and where to find the ID (Rentman: Settings, Extra input fields, first
+  column). It never guesses one.
+- It gets one extra round just for that if the questions used up theirs. The summary shows the value it will use
+  ("Using: ... 54") so the requester checks it. Still missing then, the request goes to Jamie as a proposal naming
+  what's needed, and his Build it asks him for it before anything is built.
+- The value goes to the builder in the issue under "Details the team supplied (use exactly these)"; the builder is
+  told never to guess one and to say exactly what's missing if it has to stop.
+- "Try again" on a failed build opens a box for anything the build needs this time (e.g. the field ID); it can be left
+  empty.
+
 ## "Why is the app doing this?" questions (Jamie, 20 Nov 2026)
 - The team can ask why an app behaves the way it does (something not refreshing as expected, a button not doing
   what they thought) in #app-requests itself, not a separate channel: the answer is often "that's broken, fix it",

@@ -1,7 +1,7 @@
 /** Everything people see in Slack. Pure, tested. */
 import type { App } from "./config";
 import { MAX_ROUNDS } from "./config";
-import type { Assessment } from "./prompt";
+import { missingNeeds, type Assessment, type Need } from "./prompt";
 import type { Card, Stage, Summary } from "./records";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,11 +53,30 @@ export function cardBlocks(c: Card, app: App | undefined): Block[] {
   return blocks;
 }
 
+/**
+ * What only a person can supply (a Rentman field's ID, say), asked for in so many words, never buried in a
+ * question (Jamie, 23 Nov 2026).
+ */
+export function needsText(needs: Need[] | undefined): string {
+  const missing = missingNeeds(needs);
+  if (!missing.length) return "";
+  const items = missing.map((n) => `• *${n.what}*${n.where ? `\n    _How:_ ${n.where}` : ""}`).join("\n");
+  return `📌 *Before this can be built, I need you to:*\n${items}\nReply in this thread with ${missing.length === 1 ? "it" : "them"} (for a Rentman field, just the ID number). If you can't, say so and I'll ask Jamie.`;
+}
+
+/** The answers already given, so the requester can check them on the summary. */
+export function givenText(needs: Need[] | undefined): string {
+  const given = (needs ?? []).filter((n) => n.value.trim());
+  return given.length ? `*Using:* ${given.map((n) => `${n.what}: *${n.value}*`).join("; ")}` : "";
+}
+
 export function questionBlocks(requester: string, a: Assessment, round: number): Block[] {
   const intro =
-    round === 1
-      ? `<@${requester}> thanks. A few quick questions so this comes out right (round ${round} of ${MAX_ROUNDS}). Reply in this thread, e.g. "1 yes, 2 b".`
-      : `<@${requester}> thanks, nearly there (round ${round} of ${MAX_ROUNDS}). Reply in this thread.`;
+    round > MAX_ROUNDS
+      ? `<@${requester}> thanks. One last thing before I can write this up.`
+      : round === 1
+        ? `<@${requester}> thanks. A few quick ${a.questions.length ? "questions" : "things"} so this comes out right (round ${round} of ${MAX_ROUNDS}). Reply in this thread${a.questions.length ? ', e.g. "1 yes, 2 b"' : ""}.`
+        : `<@${requester}> thanks, nearly there (round ${round} of ${MAX_ROUNDS}). Reply in this thread.`;
   const blocks: Block[] = [];
   if (a.reply_note) blocks.push({ type: "section", text: { type: "mrkdwn", text: a.reply_note } });
   blocks.push({ type: "section", text: { type: "mrkdwn", text: intro } });
@@ -65,6 +84,8 @@ export function questionBlocks(requester: string, a: Assessment, round: number):
   a.questions.forEach((q, i) => {
     blocks.push({ type: "section", text: { type: "mrkdwn", text: `*${i + 1}.* ${q.q}\n➡️ _Suggested:_ ${q.suggested}` } });
   });
+  const needs = needsText(a.needs);
+  if (needs) blocks.push({ type: "section", text: { type: "mrkdwn", text: needs } });
   return blocks;
 }
 
@@ -89,6 +110,11 @@ export function summaryBlocks(requester: string, a: Assessment, app: App, value:
   if (a.reply_note) blocks.push({ type: "section", text: { type: "mrkdwn", text: a.reply_note } });
   blocks.push({ type: "section", text: { type: "mrkdwn", text: `<@${requester}> here's what I'll do on *${app.name}*:` } });
   blocks.push({ type: "section", text: { type: "mrkdwn", text: summaryText(a.summary) } });
+  const given = givenText(a.needs);
+  if (given) blocks.push({ type: "section", text: { type: "mrkdwn", text: given } });
+  const missing = missingNeeds(a.needs);
+  if (missing.length)
+    blocks.push({ type: "section", text: { type: "mrkdwn", text: `📌 *Still needed before it can be built:* ${missing.map((n) => n.what).join("; ")}. Jamie will be asked for ${missing.length === 1 ? "it" : "them"} before anything is built.` } });
   if (a.contradiction.found) blocks.push(contradictionBlock(a));
   if (!a.recorded_decision_found) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "There's no recorded decision on this, so it wasn't checked against one." }] });
   blocks.push({ type: "section", text: { type: "mrkdwn", text: route } });
@@ -200,6 +226,14 @@ export function proposalBlocks(o: { app: App; requester: string; summary: Summar
     { type: "section", text: { type: "mrkdwn", text: summaryText(o.summary) } },
     { type: "section", text: { type: "mrkdwn", text: `*Why it's bigger:* ${o.card.reasons || "a new feature"}` } },
   ];
+  const given = givenText(o.card.needs);
+  if (given) blocks.push({ type: "section", text: { type: "mrkdwn", text: given } });
+  const missing = missingNeeds(o.card.needs);
+  if (missing.length)
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: `📌 *Needed before it can be built:*\n${missing.map((n) => `• ${n.what}${n.where ? ` (${n.where})` : ""}`).join("\n")}${o.forSam ? "" : "\nBuild it will ask you for this first."}` },
+    });
   if (o.card.contradiction) blocks.push({ type: "section", text: { type: "mrkdwn", text: `⚠️ *It would change your decision:*\n>${o.card.contradiction.replace(/\n/g, "\n>")}` } });
   if (o.card.noDecision) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "No recorded decision on this: it wasn't checked against one." }] });
   if (o.card.samComment) blocks.push({ type: "section", text: { type: "mrkdwn", text: `*Sam:* ${o.card.samComment}` } });
@@ -239,7 +273,7 @@ export function failedBlocks(o: { title: string; reason: string; link: string; r
 }
 
 /** A modal that asks for a few words (why, what to change, a comment). */
-export function textModal(o: { callbackId: string; title: string; label: string; submit: string; value: string }): Block {
+export function textModal(o: { callbackId: string; title: string; label: string; submit: string; value: string; optional?: boolean }): Block {
   return {
     type: "modal",
     callback_id: o.callbackId,
@@ -247,6 +281,14 @@ export function textModal(o: { callbackId: string; title: string; label: string;
     title: { type: "plain_text", text: o.title.slice(0, 24) },
     submit: { type: "plain_text", text: o.submit },
     close: { type: "plain_text", text: "Cancel" },
-    blocks: [{ type: "input", block_id: "text", label: { type: "plain_text", text: o.label }, element: { type: "plain_text_input", action_id: "text", multiline: true } }],
+    blocks: [
+      {
+        type: "input",
+        block_id: "text",
+        optional: !!o.optional,
+        label: { type: "plain_text", text: o.label.slice(0, 2000) },
+        element: { type: "plain_text_input", action_id: "text", multiline: true },
+      },
+    ],
   };
 }

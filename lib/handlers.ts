@@ -9,6 +9,7 @@ import {
   proposalBlocks,
   questionBlocks,
   summaryBlocks,
+  needsText,
   textModal,
   verdictBlocks,
   type Built,
@@ -32,7 +33,7 @@ import {
   threadLines,
   type Loaded,
 } from "./actions";
-import { enforce, notesBlock, transcript, turnPrompt, type Assessment } from "./prompt";
+import { enforce, missingNeeds, notesBlock, transcript, turnPrompt, type Assessment } from "./prompt";
 import { approvalMeta, cardMeta, decodeRef, encodeRef, newCard, reopensOnReply } from "./records";
 import { report } from "./report";
 import { channel as requestsChannel, fileBase64, slack, userEmail } from "./slack";
@@ -124,7 +125,8 @@ async function act(l: Loaded, a: Assessment, now: number): Promise<void> {
     c.stage = "grilling";
     c.askedAt = now;
     c.nudged = false;
-    const text = a.questions.map((q, i) => `${i + 1}. ${q.q} (Suggested: ${q.suggested})`).join("\n");
+    c.needs = a.needs;
+    const text = [a.questions.map((q, i) => `${i + 1}. ${q.q} (Suggested: ${q.suggested})`).join("\n"), needsText(a.needs).replace(/\*/g, "")].filter(Boolean).join("\n");
     await postInThread(l.channel, l.thread, text, questionBlocks(c.requester, a, c.round));
   } else if (a.next === "summarise" && app) {
     c.stage = "confirm";
@@ -138,6 +140,7 @@ async function act(l: Loaded, a: Assessment, now: number): Promise<void> {
       : "";
     c.noDecision = !a.recorded_decision_found;
     c.size = a.size;
+    c.needs = a.needs;
     const text = `Here's what I'll do: ${a.summary.title}. ${a.summary.plan}`;
     await postInThread(l.channel, l.thread, text, summaryBlocks(c.requester, a, app, encodeRef(l)));
   } else if (a.next === "investigate" && canLookInto(app) && c.looks < MAX_LOOKS) {
@@ -211,8 +214,8 @@ export async function handleInteraction(p: any): Promise<object | null> {
     const u = await who(p.user.id);
     const where = p.channel?.id ?? ref.channel;
     const deny = (msg: string) => ephemeral(where, u.id, msg);
-    const modal = (callbackId: string, title: string, label: string, submit: string) =>
-      slack("views.open", { trigger_id: p.trigger_id, view: textModal({ callbackId, title, label, submit, value: action.value }) });
+    const modal = (callbackId: string, title: string, label: string, submit: string, optional = false) =>
+      slack("views.open", { trigger_id: p.trigger_id, view: textModal({ callbackId, title, label, submit, value: action.value, optional }) });
 
     switch (action.action_id) {
       case "confirm":
@@ -241,6 +244,13 @@ export async function handleInteraction(p: any): Promise<object | null> {
         if (l.card.stage !== "proposal") return null;
         if (action.action_id === "decline") {
           await modal("decline", "Decline", "Why? The requester will see this.", "Decline");
+          return null;
+        }
+        // Something only a person can supply is still missing (a Rentman field's ID, say): ask for it before building,
+        // rather than letting the build fail on it (Jamie, 23 Nov 2026).
+        if (action.action_id === "build_it" && missingNeeds(l.card.needs).length) {
+          const list = missingNeeds(l.card.needs).map((n) => `${n.what}${n.where ? ` (${n.where})` : ""}`).join("; ");
+          await modal("build_needs", "Build it", `Before I build this I need: ${list}. Type ${missingNeeds(l.card.needs).length === 1 ? "it" : "them"} here (for a Rentman field, just the ID number).`, "Build it");
           return null;
         }
         await proposalDecision(l, action.action_id, u);
@@ -281,12 +291,12 @@ export async function handleInteraction(p: any): Promise<object | null> {
         if (!(u.isOwner || (u.isApprover && l.card.approver === "sam"))) { await deny("Only the approver can do this."); return null; }
         if (l.card.stage !== "failed") return null;
         if (action.action_id === "retry") {
-          await rebuild(appOf(l).repo, l.card.issue, `Try again, asked by ${await nameOf(u.id)}.`);
-          l.card.stage = "building";
-          l.card.startedAt = Date.now();
+          // A form, so whatever the build said it was missing (a Rentman field's ID, say) can go with the retry (23 Nov 2026).
+          await modal("retry", "Try again", "Anything the build needs this time? For example the ID of a Rentman field, or what to do differently. Leave it empty to just try again.", "Try again", true);
+          // The form's answer settles this DM (older failed DMs weren't recorded on the request).
+          l.card.approvalChannel = p.channel.id;
+          l.card.approvalTs = p.message.ts;
           await save(l);
-          await settle(p.channel.id, p.message.ts, l.card.summary?.title ?? "Request", "Trying again.");
-          await postInThread(l.channel, l.thread, "Trying the build again.");
         } else {
           await closeIssue(appOf(l).repo, l.card.issue, "not_planned").catch((e) => report(e, "drop.close_issue"));
           l.card.stage = "declined";
@@ -304,7 +314,7 @@ export async function handleInteraction(p: any): Promise<object | null> {
     const ref = decodeRef(p.view?.private_metadata);
     if (!ref) return null;
     const text: string = p.view.state.values?.text?.text?.value?.trim() ?? "";
-    if (!text) return { response_action: "errors", errors: { text: "Please write a few words." } };
+    if (!text && p.view.callback_id !== "retry") return { response_action: "errors", errors: { text: "Please write a few words." } };
     // Slack wants an answer within 3 seconds; the work runs after (see the route).
     return { after: () => submitted(p.view.callback_id, ref, text, p.user.id) };
   }
@@ -420,7 +430,20 @@ async function submitted(callbackId: string, ref: { channel: string; thread: str
   const name = await nameOf(userId);
   const title = l.card.summary?.title ?? "Request";
   const app = appOf(l);
-  if (callbackId === "changes" && l.card.stage === "approval") {
+  if (callbackId === "retry" && l.card.stage === "failed") {
+    await rebuild(app.repo, l.card.issue, text ? `Try again, asked by ${name}, who adds:\n\n${text}` : `Try again, asked by ${name}.`);
+    l.card.stage = "building";
+    l.card.startedAt = Date.now();
+    await save(l);
+    await settle(l.card.approvalChannel, l.card.approvalTs, title, text ? `Trying again with: "${text}"` : "Trying again.");
+    await postInThread(l.channel, l.thread, text ? `Trying the build again. ${name} added: "${text}"` : "Trying the build again.");
+  } else if (callbackId === "build_needs" && l.card.stage === "proposal") {
+    if ((await userEmail(userId)) !== OWNER_EMAIL) return;
+    const missing = missingNeeds(l.card.needs);
+    for (const n of missing) n.value = missing.length === 1 ? text : `${name}: ${text}`;
+    await postInThread(l.channel, l.thread, `${name} supplied what was needed: "${text}"`);
+    await proposalDecision(l, "build_it", { id: userId, email: OWNER_EMAIL, isOwner: true, isApprover: false });
+  } else if (callbackId === "changes" && l.card.stage === "approval") {
     await rebuild(app.repo, l.card.issue, `Changes asked by ${name}:\n\n${text}`);
     l.card.stage = "building";
     l.card.startedAt = Date.now();
@@ -499,8 +522,11 @@ export async function handleBuildReport(r: BuildReport, now = Date.now()): Promi
   } else {
     l.card.stage = "failed";
     l.card.note = (r.reason || "the build didn't finish").slice(0, 300);
+    const d = await dm(approverEmail, `Couldn't build: ${title}`, failedBlocks({ title, reason: l.card.note, link: await link(l), runUrl: r.runUrl, value: encodeRef(l) }));
+    // Try again opens a form; its answer settles this DM.
+    l.card.approvalChannel = d.channel;
+    l.card.approvalTs = d.ts;
     await save(l);
-    await dm(approverEmail, `Couldn't build: ${title}`, failedBlocks({ title, reason: l.card.note, link: await link(l), runUrl: r.runUrl, value: encodeRef(l) }));
     if (approverEmail !== OWNER_EMAIL) await dm(OWNER_EMAIL, `FYI: a build failed: ${title}. ${await link(l)}`);
     await postInThread(l.channel, l.thread, `<@${l.card.requester}> I couldn't build this one first time. ${approverName} has been told and can ask me to try again.`);
   }
