@@ -1,5 +1,5 @@
 # Paste this at https://api.slack.com/apps → Create New App → From an app manifest.
-# Replace APP_URL with the Vercel address (e.g. https://fomo-app-requests.vercel.app) in the two places below.
+# Replace APP_URL with the Vercel address (e.g. https://fomo-app-requests.vercel.app) in the three places below.
 display_information:
   name: FOMO App requests
   description: Ask for a change to one of the team's apps
@@ -12,6 +12,12 @@ features:
   bot_user:
     display_name: App requests
     always_online: true
+  slash_commands:
+    - command: /list-kit
+      url: APP_URL/api/slack/commands
+      description: Put new kit on the website (or edit a listing)
+      usage_hint: "[Rentman code or part of the name]"
+      should_escape: false
 oauth_config:
   scopes:
     bot:
@@ -22,6 +28,7 @@ oauth_config:
       - users:read.email
       - im:write
       - files:read
+      - commands
       - channels:read # the Request tracker finds the channel's canvas (23 Nov 2026)
       - canvases:read
       - canvases:write

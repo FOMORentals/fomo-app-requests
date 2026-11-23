@@ -45,3 +45,8 @@ export function isMorningSlot(ms: number): boolean {
   const p = parts(ms);
   return isWorkingDay(ms) && p.hour === 9 && p.minute < 15;
 }
+
+/** The hour (0-23) in London. */
+export function londonHour(ms: number): number {
+  return parts(ms).hour;
+}

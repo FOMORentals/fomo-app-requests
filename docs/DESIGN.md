@@ -115,3 +115,38 @@ change it here the same day (rule 7).
   At most 2 looks per question, then Jamie. A look that doesn't report back in 45 minutes goes to Jamie.
 - Not yet: the apps' own server logs and refresh times (Vercel, Google Cloud, Firestore). The look says when its
   answer depends on them. Adding them needs read-only access Jamie sets up; a separate decision.
+
+## Website listings, `/list-kit` (Jamie, 23 Nov 2026)
+Planned with Jamie in the project thread "Plan Slack tool for new website kit listings" (12 questions, all agreed).
+Spec: project file `website-listings/website-listing-tool-spec.md`.
+- **For brand new purchases**, and for correcting a listing already live. Kit onboarding is left alone (unfinished).
+- **Version 1 only finishes an item someone has already created in Rentman** (name, folder, day rate, stock) and
+  given a photo. It never creates Rentman items (the "one step" version is for later) and never uploads photos
+  (Rentman's API can't; a robot would need a paid Rentman user).
+- **`/list-kit` from any channel**: a Rentman code, id or part of the name, or nothing for "recent ones" (created in
+  the last 14 days, not on the website). Cards and approvals live in a new **#website-listings** channel, never in
+  #app-requests (the build bot reads everything there).
+- **The AI drafts** the name on website (only if different), the short and long descriptions in FOMO's style (copying
+  live ones), the camera/lens spec fields and the At a glance rows and tech spec tables, from the manufacturer's own
+  website only. "New" is on for new purchases. The AI never sets prices. It fills only blanks: an item already on the
+  website starts from what the website shows, and a Brand + Model tech spec page the website already has is reused.
+  Model: Haiku (as kit onboarding, Jamie 6 Oct 2026).
+- **Anyone on the team** starts and edits a draft (a Slack form). **Only Jamie, Sam or Will** press Publish, Go live
+  now and Take off website.
+- **Publish refuses** until the item has a photo, a day rate above £0, is in the planner and its folder is under a
+  website category, and both descriptions are written; it says what to fix in Rentman, with Check again.
+- **Publish** = one Rentman update with only the changed website fields (custom_41-50, both shop descriptions) and
+  "visible in webshop" ticked, then a re-read to check it saved. The approver's Publish is also the check of the tech
+  spec page, which is saved to the website repo (a pull request merged at once, as kit onboarding does). An edit to a
+  live listing shows old next to new and needs Publish again. Publish uses the Rentman writer lease shared with kit
+  onboarding.
+- **Live** at the next 05:41 website update, or straight away with **Go live now** (approvers, at most 3 a day:
+  6 Rentman calls each). After the update the bot says "now live" with the link, or says it didn't appear (and tells
+  Jamie).
+- **Take off website** unticks "visible in webshop" (approvers), so a mistake can be undone.
+- Drafts get one reminder to their owner after 2 untouched days. Nothing touches Rentman before Publish.
+- **Rentman budget** (Jamie approved): about 5 calls per listing (find 1-2, draft 1, publish 3), folders and style
+  examples cached (a day / a week), plus 6 per Go live now. All through the shared guard.
+- This is the first part of this app to call Rentman and Google Cloud (Firestore fomo-bookings-board-v2 for drafts,
+  the shared circuit and the writer lease; the website-sync Cloud Run job for Go live now). Drafts live in Firestore,
+  not Slack metadata, because long descriptions don't fit there.

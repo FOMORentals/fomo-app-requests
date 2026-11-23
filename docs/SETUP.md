@@ -49,3 +49,26 @@ Team Dashboard questions also read fomo-cloud-function: a read-only deploy key o
 Deploy keys, "app-question read only", write access off) whose private half is the secret `CLOUD_FUNCTION_READ_KEY`
 on fomo-bookings-board-v2. Without it the look still runs on the board's code alone and says it couldn't read
 the Cloud Function.
+
+## Website listings, `/list-kit` (23 Nov 2026)
+
+Nothing changes for #app-requests until these are done; `/list-kit` simply isn't there yet.
+
+1. **Slack channel.** Create `#website-listings` (public), add the team, `/invite @App requests`, copy its channel ID.
+2. **Slack command.** api.slack.com/apps → FOMO App requests → App Manifest: add the `commands` scope and the
+   `slash_commands` block from `docs/slack-app-manifest.yml`, save, and reinstall the app when Slack asks.
+3. **Google service account** `app-requests-listings` (project clever-acolyte-298614), with:
+   - `roles/datastore.user` on project fomo-bookings-board-v2 (drafts, the shared Rentman circuit and writer lease,
+     the website's search index);
+   - `roles/run.jobsExecutorWithOverrides` on the Cloud Run job `website-sync` (project fomo-rentals-website,
+     europe-west2) for Go live now, as the `website-sync-scheduler` account has.
+   Create a JSON key and store it base64-encoded, never in a file in the repo.
+4. **Vercel** (fomo-app-requests, Production, Sensitive): `LISTINGS_CHANNEL_ID` (step 1), `FIREBASE_SERVICE_ACCOUNT_BASE64`
+   (step 3), `RENTMAN_TOKEN` (the same Rentman API token the website sync uses, Secret Manager `RENTMAN_TOKEN` in
+   fomo-rentals-website), `RENTMAN_CALLER_LABEL` = `app-requests-listings` (how its calls show in the daily Rentman
+   counter), and optionally `WEBSITE_URL` (default https://www.fomorentals.co.uk). Redeploy.
+5. **GitHub token.** The app's `GITHUB_TOKEN` already has Contents and Pull requests read and write on
+   fomo-rentals-website-rebuild (step 4 above); publishing a tech spec page uses it. Nothing to add unless it was
+   narrowed.
+
+Try it: `/list-kit` with nothing after it shows kit added in the last 14 days.
