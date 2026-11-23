@@ -2,7 +2,7 @@
 import type { App } from "./config";
 import { MAX_ROUNDS } from "./config";
 import { missingNeeds, type Assessment, type Need } from "./prompt";
-import { encodeRef, type ApprovalRef, type Card, type Stage, type Summary } from "./records";
+import { encodeRef, type ApprovalRef, type Card, type Scope, type Stage, type Summary } from "./records";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Block = Record<string, any>;
@@ -10,6 +10,7 @@ export type Block = Record<string, any>;
 const STEPS = ["Received", "Questions", "Waiting for ✅", "Building", "Waiting for approval", "Live ✅"];
 
 const STEP_OF: Partial<Record<Stage, number>> = {
+  reframe: 1,
   grilling: 1,
   confirm: 2,
   queued: 3,
@@ -24,7 +25,9 @@ const ENDINGS: Partial<Record<Stage, string>> = {
   answered: "Answered, no change needed",
   explained: "Answered: I looked into the app",
   handed: "Passed to Jamie",
-  parked: "Not now (Jamie)",
+  parked: "Not now",
+  gate: "Waiting for Sam: full grill?",
+  grill: "Being grilled in full. The spec goes to Jamie",
   declined: "Declined",
   closed: "Closed (no reply). Reply here any time to reopen it",
   failed: "Couldn't build it",
@@ -70,6 +73,61 @@ export function needsText(needs: Need[] | undefined): string {
   if (!missing.length) return "";
   const items = missing.map((n) => `• *${n.what}*${n.where ? `\n    _How:_ ${n.where}` : ""}`).join("\n");
   return `📌 *Before this can be built, I need you to:*\n${items}\nReply in this thread with ${missing.length === 1 ? "it" : "them"} (for a Rentman field, just the ID number). If you can't, say so and I'll ask Jamie.`;
+}
+
+export const SCOPE_LABEL: Record<Exclude<Scope, "">, string> = { quick_fix: "🟢 Quick fix", change: "🟡 Change", new_idea: "🔴 New idea" };
+
+/** "Here's how I read this" (Jamie, 23 Nov 2026): the outcome, what exists, and the size, for the requester to confirm. */
+export function reframeBlocks(o: { requester: string; after: string; exists: string; scope: Scope; why: string; value: string }): Block[] {
+  const size = o.scope ? `${SCOPE_LABEL[o.scope]}${o.why ? `: ${o.why}` : ""}` : o.why;
+  const quote = [`*What you're after:* ${o.after}`, o.exists ? `*What exists:* ${o.exists}` : "", size ? `*Size:* ${size}` : ""].filter(Boolean).map((l) => `> ${l.replace(/\n/g, "\n> ")}`).join("\n");
+  return [
+    { type: "section", text: { type: "mrkdwn", text: `<@${o.requester}> *Here's how I read this*\n${quote}`.slice(0, 2990) } },
+    { type: "context", elements: [{ type: "mrkdwn", text: "Is that what you mean? If not, reply and tell me what I've got wrong." }] },
+    { type: "actions", elements: [{ type: "button", style: "primary", action_id: "reframe_yes", text: { type: "plain_text", text: "Yes, that's it" }, value: o.value }] },
+  ];
+}
+
+/** Sam's call on a team member's new idea: in his DM and in the thread (Jamie chose Sam, 23 Nov 2026). */
+export function gateBlocks(o: { name: string; asked: string; after: string; why: string; link: string; value: string }): Block[] {
+  return [
+    { type: "section", text: { type: "mrkdwn", text: `🔥 *${o.name} has a bigger idea. Full grill?*` } },
+    {
+      type: "section",
+      text: { type: "mrkdwn", text: [`*Asked:* ${o.asked}`, o.after ? `*Really after:* ${o.after}` : "", o.why ? `*Why it's big:* ${o.why}` : "", `<${o.link}|Open the thread>`].filter(Boolean).join("\n").slice(0, 2990) },
+    },
+    {
+      type: "actions",
+      elements: [
+        { type: "button", style: "primary", action_id: "gate_grill", text: { type: "plain_text", text: "Grill it" }, value: o.value },
+        { type: "button", action_id: "gate_small", text: { type: "plain_text", text: "Keep it small" }, value: o.value },
+        { type: "button", action_id: "gate_park", text: { type: "plain_text", text: "Park" }, value: o.value },
+      ],
+    },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `*Grill it:* ${o.name} gets the full grill in the thread; you can join in. The spec goes to Jamie (copy to you).\n*Keep it small:* the usual few questions, sized down.\n*Park:* ${o.name} is told it's parked for now.`,
+        },
+      ],
+    },
+  ];
+}
+
+/** A change that turned out bigger: tells the requester, and offers to keep it small. */
+export function stepUpBlocks(o: { requester: string; why: string; keepSmall: string; value: string }): Block[] {
+  const blocks: Block[] = [
+    { type: "section", text: { type: "mrkdwn", text: `⬆️ *This is bigger than it looked.* ${o.why} A few questions won't get it right.`.slice(0, 2990) } },
+    {
+      type: "context",
+      elements: [{ type: "mrkdwn", text: `I've asked Sam whether to grill it fully.${o.keepSmall ? ` Or <@${o.requester}> can keep it small with the button below (${o.keepSmall}).` : ""}` }],
+    },
+  ];
+  if (o.keepSmall)
+    blocks.push({ type: "actions", elements: [{ type: "button", action_id: "keep_small", text: { type: "plain_text", text: `Keep it small (${o.keepSmall})`.slice(0, 75) }, value: o.value }] });
+  return blocks;
 }
 
 /** The answers already given, so the requester can check them on the summary. */

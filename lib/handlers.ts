@@ -6,9 +6,12 @@ import {
   approvalBlocks,
   doneBlocks,
   failedBlocks,
+  gateBlocks,
   lookingBlocks,
   proposalBlocks,
   questionBlocks,
+  reframeBlocks,
+  stepUpBlocks,
   summaryBlocks,
   needsText,
   textModal,
@@ -35,9 +38,9 @@ import {
   threadLines,
   type Loaded,
 } from "./actions";
-import { enforce, missingNeeds, notesBlock, transcript, turnPrompt, type Assessment } from "./prompt";
+import { enforce, missingNeeds, notesBlock, transcript, turnPrompt, type Assessment, type Depth } from "./prompt";
 import { approvalMeta, cardMeta, decodeRef, encodeRef, newCard, reopensOnReply } from "./records";
-import { grillFromMessage, grillReply } from "./grill/handlers";
+import { grillFromMessage, grillReply, grillRequest } from "./grill/handlers";
 import { report } from "./report";
 import { channel as requestsChannel, fileBase64, slack, userEmail } from "./slack";
 
@@ -107,7 +110,8 @@ export async function turn(l: Loaded, now = Date.now()): Promise<void> {
   try {
     const thread = transcript(await threadLines(l));
     const pics = await images(l);
-    const run = async (appKey: string) => assess({ notes: await notesFor(appKey), thread, turn: turnPrompt(l.card.round, appKey, l.card.fixing), images: pics });
+    const depth: Depth = { reframed: l.card.reframed, scope: l.card.scope, gate: l.card.gate };
+    const run = async (appKey: string) => assess({ notes: await notesFor(appKey), thread, turn: turnPrompt(l.card.round, appKey, l.card.fixing, depth), images: pics });
     let a: Assessment = await run(l.card.app);
     // First time the app is known: read again, this time with that app's design notes.
     if (appByKey(a.app) && a.app !== l.card.app) {
@@ -116,7 +120,7 @@ export async function turn(l: Loaded, now = Date.now()): Promise<void> {
       if (appByKey(a.app)) l.card.app = a.app;
     }
     const app = appByKey(l.card.app);
-    a = enforce(a, l.card.round, app, l.card.fixing);
+    a = enforce(a, l.card.round, app, l.card.fixing, depth);
     await act(l, a, now);
   } catch (err) {
     report(err, "turn", { thread: l.thread });
@@ -129,7 +133,24 @@ export async function turn(l: Loaded, now = Date.now()): Promise<void> {
 async function act(l: Loaded, a: Assessment, now: number): Promise<void> {
   const c = l.card;
   const app = appByKey(c.app);
-  if (a.next === "ask") {
+  if (a.next === "reframe") {
+    // How Claude reads it, and its size, for the requester to confirm before any questions (Jamie, 23 Nov 2026).
+    c.stage = "reframe";
+    c.scope = a.reframe.scope;
+    c.scopeWhy = a.reframe.why;
+    c.after = a.reframe.after;
+    c.askedAt = now;
+    c.nudged = false;
+    const size = a.reframe.scope ? ` Size: ${a.reframe.scope.replace("_", " ")}${a.reframe.why ? ` (${a.reframe.why})` : ""}.` : "";
+    await postInThread(l.channel, l.thread, `Here's how I read this: ${a.reframe.after}${a.reframe.exists ? ` What exists: ${a.reframe.exists}` : ""}${size}`, reframeBlocks({ requester: c.requester, ...a.reframe, value: encodeRef(l) }));
+  } else if (a.next === "step_up") {
+    // A change that turned out to be a new idea: Sam decides whether it gets the full grill.
+    c.scopeWhy = a.reframe.why;
+    c.keepSmall = a.reframe.keep_small;
+    c.needs = a.needs;
+    await toGate(l, now);
+    return;
+  } else if (a.next === "ask") {
     c.round += 1;
     c.stage = "grilling";
     c.askedAt = now;
@@ -192,6 +213,73 @@ async function startLook(l: Loaded, app: NonNullable<ReturnType<typeof appByKey>
   c.verdict = "";
   await save(l);
   await postInThread(l.channel, l.thread, `Looking into it. ${focus}`, lookingBlocks(c.requester, focus));
+}
+
+// ---------- Right-sized grilling (Jamie, 23 Nov 2026) ----------
+
+const rootOf = (l: Loaded) => l.messages.find((m) => m.ts === l.thread)?.text ?? "";
+const isStepUp = (l: Loaded) => l.card.scope !== "new_idea";
+
+/** Sam's buttons for a request that's a new idea, or stepped up to one: in his DM, and in the thread. */
+async function toGate(l: Loaded, now = Date.now()): Promise<void> {
+  const c = l.card;
+  c.stage = "gate";
+  c.gate = "";
+  c.askedAt = 0;
+  const value = encodeRef(l);
+  const name = await nameOf(c.requester);
+  const gate = gateBlocks({ name, asked: rootOf(l).slice(0, 600), after: c.after, why: c.scopeWhy, link: await link(l), value });
+  const posted = isStepUp(l)
+    ? await postInThread(l.channel, l.thread, `This is bigger than it looked. ${c.scopeWhy}`, stepUpBlocks({ requester: c.requester, why: c.scopeWhy, keepSmall: c.keepSmall, value }))
+    : await postInThread(l.channel, l.thread, `${name}'s idea: full grill?`, [
+        { type: "section", text: { type: "mrkdwn", text: "This is a bigger idea, so I've asked Sam whether it should get the full grill. I'll carry on here once he's looked." } },
+        ...gate,
+      ]);
+  c.gateTs = posted;
+  const d = await dm(APPROVER_EMAIL, `${name} has a bigger idea. Full grill?`, gate);
+  c.gateDmChannel = d.channel;
+  c.gateDmTs = d.ts;
+  c.pendingSince = now;
+  await save(l);
+}
+
+/** Replaces Sam's buttons (thread and DM) and the requester's "Keep it small" with what was decided. */
+async function settleGate(l: Loaded, outcome: string): Promise<void> {
+  const c = l.card;
+  const name = await nameOf(c.requester);
+  const value = encodeRef(l);
+  const gate = gateBlocks({ name, asked: rootOf(l).slice(0, 600), after: c.after, why: c.scopeWhy, link: await link(l), value });
+  const done = (blocks: object[]) => [...blocks.filter((b) => (b as { type: string }).type !== "actions"), { type: "context", elements: [{ type: "mrkdwn", text: outcome }] }];
+  if (c.gateTs) {
+    const text = isStepUp(l) ? `This is bigger than it looked. ${c.scopeWhy}` : `${name}'s idea: full grill?`;
+    const thread = isStepUp(l)
+      ? stepUpBlocks({ requester: c.requester, why: c.scopeWhy, keepSmall: c.keepSmall, value })
+      : [{ type: "section", text: { type: "mrkdwn", text: "This is a bigger idea, so I asked Sam whether it should get the full grill." } }, ...gate];
+    await slack("chat.update", { channel: l.channel, ts: c.gateTs, text: `${text} ${outcome}`, blocks: done(thread) }).catch((e) => report(e, "gate.settle.thread"));
+  }
+  if (c.gateDmChannel && c.gateDmTs) await slack("chat.update", { channel: c.gateDmChannel, ts: c.gateDmTs, text: outcome, blocks: done(gate) }).catch((e) => report(e, "gate.settle.dm"));
+}
+
+/** The full grill, in the request's own thread, with the requester as the interviewee. The spec goes to Jamie. */
+async function fullGrill(l: Loaded): Promise<void> {
+  const c = l.card;
+  c.stage = "grill";
+  c.gate = "grill";
+  c.askedAt = 0;
+  await save(l);
+  const idea = [rootOf(l), c.after ? `(What they're after, as they confirmed it: ${c.after})` : ""].filter(Boolean).join("\n\n");
+  await grillRequest(l.channel, l.thread, c.requester, idea);
+}
+
+/** Sam (or the requester, on a step-up) chose to keep it a change: the usual few questions. */
+async function keepSmall(l: Loaded, said: string): Promise<void> {
+  const c = l.card;
+  c.gate = "small";
+  c.scope = "change";
+  c.stage = "grilling";
+  await save(l);
+  await postInThread(l.channel, l.thread, said);
+  await turn(l);
 }
 
 // ---------- Buttons and forms ----------
@@ -291,6 +379,46 @@ export async function handleInteraction(p: any): Promise<object | null> {
         await postInThread(l.channel, l.thread, "Turning this into a request, using what I found.");
         return { after: () => turn(l) };
       }
+      case "reframe_yes": {
+        if (u.id !== l.card.requester && !u.isOwner) { await deny("Only the person who asked can confirm this."); return null; }
+        if (l.card.stage !== "reframe") return null;
+        // The text stays: it's how Claude sees its own reading in the thread next turn.
+        await slack("chat.update", { channel: p.channel.id, ts: p.message.ts, text: `${p.message.text ?? ""} (Confirmed: yes, that's it.)`, blocks: [...p.message.blocks.filter((b: { type: string }) => b.type !== "actions" && b.type !== "context"), { type: "context", elements: [{ type: "mrkdwn", text: `✅ <@${u.id}>: yes, that's it` }] }] });
+        l.card.reframed = true;
+        l.card.stage = "grilling";
+        await save(l);
+        if (l.card.scope !== "new_idea") return { after: () => turn(l) };
+        // A new idea: Sam's and Jamie's own go straight to the full grill; the team's need Sam's tap (Jamie chose, 23 Nov 2026).
+        const own = [APPROVER_EMAIL, OWNER_EMAIL].includes(await userEmail(l.card.requester));
+        return { after: () => (own ? fullGrill(l) : toGate(l)) };
+      }
+      case "gate_grill":
+      case "gate_small":
+      case "gate_park": {
+        if (!u.isApprover && !u.isOwner) { await deny("Sam decides whether this gets the full grill."); return null; }
+        if (l.card.stage !== "gate") return null;
+        const name = await nameOf(u.id);
+        if (action.action_id === "gate_grill") {
+          await settleGate(l, `🔥 ${name} chose the full grill.`);
+          return { after: () => fullGrill(l) };
+        }
+        if (action.action_id === "gate_small") {
+          await settleGate(l, `${name} chose to keep it small.`);
+          return { after: () => keepSmall(l, `${name} wants to keep this small${l.card.keepSmall ? ` (${l.card.keepSmall})` : ""}: a few questions, then the usual route.`) };
+        }
+        l.card.stage = "parked";
+        l.card.gate = "parked";
+        l.card.note = `Parked by ${name}`;
+        await save(l);
+        await settleGate(l, `⏸ Parked by ${name}.`);
+        await postInThread(l.channel, l.thread, `<@${l.card.requester}> ${name} has parked this for now, so nothing will be built from it yet. Talk to ${name} if you'd like to go through it.`);
+        return null;
+      }
+      case "keep_small":
+        if (u.id !== l.card.requester && !u.isOwner && !u.isApprover) { await deny("Only the person who asked can choose this."); return null; }
+        if (l.card.stage !== "gate" || !l.card.keepSmall) return null;
+        await settleGate(l, `<@${u.id}> kept it small (${l.card.keepSmall}).`);
+        return { after: () => keepSmall(l, `Keeping it small: ${l.card.keepSmall}. I'll carry on with that part left out.`) };
       case "done_elsewhere":
         // The work was finished outside the bot (another thread built it): Jamie marks it done, nothing is built (23 Nov 2026).
         if (!u.isOwner) { await deny("Only Jamie can mark this as done elsewhere."); return null; }

@@ -7,23 +7,24 @@
  * Slack is the database, as for requests: the grill's state is metadata on the bot's first message in the thread.
  * External calls: Slack, GitHub (reads, and one file written to specs/ per spec), Anthropic. No new scheduled job.
  */
-import { APPS, GRILLERS, OWNER, OWNER_EMAIL } from "../config";
+import { APPROVER_EMAIL, APPS, GRILLERS, OWNER, OWNER_EMAIL, personByEmail } from "../config";
 import { botId, dm, load, save } from "../actions";
 import { fileNow, gh } from "../github";
 import { report } from "../report";
 import { channel as requestsChannel, fileBase64, messageLink, replies, slack, userEmail, type Meta, type SlackMessage } from "../slack";
 import { londonDate } from "../time";
 import { grillRound, writeSpec, type Image } from "./claude";
-import { CONTEXT_FILES, SKILL_FILE, clip, contextBlock, conversation, specPath, toSlack, type ThreadMsg } from "./prompt";
+import { CONTEXT_FILES, SKILL_FILE, clip, contextBlock, conversation, interviewee, specPath, toSlack, type ThreadMsg } from "./prompt";
 
 export const GRILL = "ar_grill"; // the thread's first message: the grill's state
 export const ROUND = "ar_grill_round"; // a round (or the shared understanding) Claude wrote: part of the conversation
 
 export type Stage = "grilling" | "thinking" | "confirm" | "writing" | "sent";
-export type Grill = { by: string; idea: string; stage: Stage; title: string; spec: string };
+/** name: the interviewee's first name (Sam by /grill; a team member when Sam sent their new idea for a full grill). */
+export type Grill = { by: string; name: string; idea: string; stage: Stage; title: string; spec: string };
 
 export function grillMeta(g: Grill): Meta {
-  return { event_type: GRILL, event_payload: { by: g.by, idea: g.idea, stage: g.stage, title: g.title, spec: g.spec } };
+  return { event_type: GRILL, event_payload: { by: g.by, name: g.name, idea: g.idea, stage: g.stage, title: g.title, spec: g.spec } };
 }
 
 export function readGrill(m: Meta | undefined): Grill | null {
@@ -31,7 +32,7 @@ export function readGrill(m: Meta | undefined): Grill | null {
   const p = m.event_payload ?? {};
   if (!p.by || !p.idea) return null;
   const stage = (["grilling", "thinking", "confirm", "writing", "sent"] as const).find((s) => s === p.stage) ?? "grilling";
-  return { by: p.by, idea: p.idea, stage, title: p.title ?? "", spec: p.spec ?? "" };
+  return { by: p.by, name: p.name || "Sam", idea: p.idea, stage, title: p.title ?? "", spec: p.spec ?? "" };
 }
 
 export const canGrill = (email: string) => GRILLERS.includes(email.trim().toLowerCase());
@@ -63,7 +64,7 @@ async function saveGrill(g: G): Promise<void> {
 }
 
 function rootText(g: Grill): string {
-  return `Grilling Sam's idea: ${g.idea}`;
+  return `Grilling ${g.name}'s idea: ${g.idea}`;
 }
 
 function rootBlocks(g: Grill): object[] {
@@ -72,7 +73,7 @@ function rootBlocks(g: Grill): object[] {
       ? `📄 Done: the spec${g.title ? ` "${g.title}"` : ""} went to Jamie. He decides whether it gets built.`
       : "Answer in the thread. Screenshots welcome. When we're done, the spec goes to Jamie. Nothing is built from here.";
   return [
-    { type: "section", text: { type: "mrkdwn", text: `🔥 *Grilling Sam's idea:* ${clip(g.idea, 2500)}` } },
+    { type: "section", text: { type: "mrkdwn", text: `🔥 *Grilling ${g.name}'s idea:* ${clip(g.idea, 2500)}` } },
     { type: "context", elements: [{ type: "mrkdwn", text: status }] },
   ];
 }
@@ -107,7 +108,7 @@ export async function handleGrillCommand(p: Record<string, string>): Promise<Res
     body: { response_type: "ephemeral", text: "Starting your grill in #app-requests…" },
     after: async () => {
       const ch = requestsChannel();
-      await startGrill(ch, null, p.user_id, idea, async (thread) => {
+      await startGrill(ch, null, p.user_id, "Sam", idea, async (thread) => {
         const link = await messageLink(ch, thread);
         await fetch(p.response_url, {
           method: "POST",
@@ -120,8 +121,8 @@ export async function handleGrillCommand(p: Record<string, string>): Promise<Res
 }
 
 /** Posts the grill's card (a new thread, or a reply in `thread`) and asks the first round. */
-async function startGrill(ch: string, thread: string | null, by: string, idea: string, started?: (thread: string) => Promise<void>): Promise<void> {
-  const grill: Grill = { by, idea: clip(idea, 3000), stage: "grilling", title: "", spec: "" };
+async function startGrill(ch: string, thread: string | null, by: string, name: string, idea: string, started?: (thread: string) => Promise<void>): Promise<void> {
+  const grill: Grill = { by, name, idea: clip(idea, 3000), stage: "grilling", title: "", spec: "" };
   const card = await slack<{ ts: string }>("chat.postMessage", { channel: ch, thread_ts: thread ?? undefined, text: rootText(grill), blocks: rootBlocks(grill), metadata: grillMeta(grill), unfurl_links: false });
   const t = thread ?? card.ts;
   if (started) await started(t);
@@ -141,8 +142,18 @@ export async function grillFromMessage(channel: string, ts: string, user: string
     await slack("chat.postMessage", { channel, thread_ts: ts, text: "Tell me the idea after /grill, for example: /grill a morning view of upcoming quotes by bookie." });
     return true;
   }
-  await startGrill(channel, ts, user, idea);
+  await startGrill(channel, ts, user, "Sam", idea);
   return true;
+}
+
+/**
+ * A request that turned out to be a new idea, sent for the full grill (Jamie, 23 Nov 2026): Sam tapped "Grill it" on a
+ * team member's request, or Sam or Jamie confirmed one of their own. The grill runs in the request's thread, with
+ * the requester as the interviewee. /grill itself stays Sam's; this is the only other way in.
+ */
+export async function grillRequest(channel: string, thread: string, requester: string, idea: string): Promise<void> {
+  const name = personByEmail(await userEmail(requester))?.name ?? "the requester";
+  await startGrill(channel, thread, requester, name, idea);
 }
 
 // ---------- Replies in a grill thread ----------
@@ -156,7 +167,8 @@ export async function grillReply(e: any): Promise<boolean> {
   if (e.user !== g.grill.by) return true;
   if (g.grill.stage === "thinking" || g.grill.stage === "writing") return true; // the running turn picks it up when it ends
   if (g.grill.stage === "sent") {
-    await slack("chat.postMessage", { channel: g.channel, thread_ts: g.thread, text: "This grill is finished and the spec is with Jamie. Start a new one with `/grill` and your idea." });
+    const again = g.grill.name === "Sam" ? "Start a new one with `/grill` and your idea." : "Post a new request in #app-requests for anything else.";
+    await slack("chat.postMessage", { channel: g.channel, thread_ts: g.thread, text: `This grill is finished and the spec is with Jamie. ${again}` });
     return true;
   }
   await round(g);
@@ -175,12 +187,12 @@ async function convert(e: any): Promise<boolean> {
   const idea = grillText(root.text);
   if (!idea || !canGrill(await userEmail(e.user))) return false;
   const l = await load(e.channel, e.thread_ts);
-  if (l && l.card.stage !== "closed") {
-    l.card.stage = "closed";
+  if (l && l.card.stage !== "grill") {
+    l.card.stage = "grill";
     l.card.note = "Became a grill (/grill)";
     await save(l);
   }
-  await startGrill(e.channel, e.thread_ts, e.user, idea);
+  await startGrill(e.channel, e.thread_ts, e.user, "Sam", idea);
   return true;
 }
 
@@ -198,7 +210,7 @@ async function threadMsgs(g: G, me: string): Promise<{ msgs: ThreadMsg[]; images
     }
     const pics = (m.files ?? []).filter((f) => IMAGE_TYPES.some((t) => t === f.mimetype) && f.url_private && (f.size ?? 0) <= MAX_IMAGE_BYTES);
     if (m.user === g.grill.by) for (const f of pics) files.push({ url: f.url_private!, type: f.mimetype as Image["mediaType"] });
-    const name = m.user === g.grill.by ? "Sam" : await nameFor(m.user ?? "");
+    const name = m.user === g.grill.by ? g.grill.name : await nameFor(m.user ?? "");
     msgs.push({ who: m.user === g.grill.by ? "starter" : "other", name, text: m.text ?? "", images: pics.length });
   }
   // The three most recent screenshots Sam added.
@@ -235,9 +247,9 @@ async function round(g: G, again = 0): Promise<void> {
   try {
     const me = await botId();
     const { msgs, images } = await threadMsgs(g, me);
-    const turns = conversation(g.grill.idea, "Sam", msgs);
-    if (turns[turns.length - 1].role !== "user") throw new Error("Nothing new from Sam to answer");
-    const r = await grillRound({ ...(await inputs()), turns, images });
+    const turns = conversation(g.grill.idea, g.grill.name, msgs);
+    if (turns[turns.length - 1].role !== "user") throw new Error(`Nothing new from ${g.grill.name} to answer`);
+    const r = await grillRound({ ...(await inputs()), who: interviewee(g.grill.name), turns, images });
     if (r.kind === "round") {
       await slack("chat.update", { channel: g.channel, ts: holder.ts, text: clip(toSlack(r.text)), metadata: { event_type: ROUND, event_payload: { kind: "round" } } });
       next = "grilling";
@@ -289,9 +301,17 @@ async function deliver(g: G): Promise<void> {
     const { msgs } = await threadMsgs(fresh, me);
     const link = await messageLink(g.channel, g.thread);
     const date = londonDate(Date.now());
-    const spec = await writeSpec({ ...(await inputs()), turns: conversation(g.grill.idea, "Sam", msgs), date, link });
-    const saved = await saveSpec(date, spec.title, spec.markdown);
-    await sendToJamie(spec, saved, link);
+    const spec = await writeSpec({ ...(await inputs()), who: interviewee(g.grill.name), turns: conversation(g.grill.idea, g.grill.name, msgs), date, link });
+    const saved = await saveSpec(date, g.grill.name, spec.title, spec.markdown);
+    await sendToJamie(g.grill.name, spec, saved, link);
+    // A team member's grill: Sam sent it for the full grill, so he gets the link too, and the request's card says where it went.
+    if (g.grill.name !== "Sam") await dm(APPROVER_EMAIL, `📄 ${g.grill.name}'s spec went to Jamie: *${spec.title}*. <${saved.url}|Spec> · <${link}|Slack thread>`);
+    const l = await load(g.channel, g.thread);
+    if (l && l.card.stage === "grill") {
+      l.card.stage = "handed";
+      l.card.note = "Spec sent to Jamie";
+      await save(l);
+    }
     g.grill.stage = "sent";
     g.grill.title = spec.title.slice(0, 120);
     g.grill.spec = saved.url;
@@ -314,22 +334,22 @@ async function deliver(g: G): Promise<void> {
 }
 
 /** A copy in this repo's specs/ folder, never overwriting one already there. */
-async function saveSpec(date: string, title: string, markdown: string): Promise<{ path: string; url: string }> {
+async function saveSpec(date: string, name: string, title: string, markdown: string): Promise<{ path: string; url: string }> {
   const base = specPath(date, title).replace(/\.md$/, "");
   for (let n = 1; n <= 20; n++) {
     const path = n === 1 ? `${base}.md` : `${base}-${n}.md`;
     const at = `/repos/${OWNER}/fomo-app-requests/contents/${path}`;
     if ((await gh(at, { allow404: true })).status !== 404) continue;
-    const res = await gh(at, { method: "PUT", body: { message: `Spec from Sam's grill: ${title}`, content: Buffer.from(markdown, "utf8").toString("base64") } });
+    const res = await gh(at, { method: "PUT", body: { message: `Spec from ${name}'s grill: ${title}`, content: Buffer.from(markdown, "utf8").toString("base64") } });
     const json = (await res.json()) as { content: { html_url: string } };
     return { path, url: json.content.html_url };
   }
   throw new Error(`Couldn't find a free name for ${base}.md`);
 }
 
-async function sendToJamie(spec: { title: string; apps: string; started_as: string; ended_as: string; markdown: string }, saved: { path: string; url: string }, link: string): Promise<void> {
+async function sendToJamie(name: string, spec: { title: string; apps: string; started_as: string; ended_as: string; markdown: string }, saved: { path: string; url: string }, link: string): Promise<void> {
   const head = [
-    `📄 *Sam's spec is ready: ${spec.title}*`,
+    `📄 *${name}'s spec is ready: ${spec.title}*`,
     `*Started as:* ${spec.started_as}`,
     `*Ended as:* ${spec.ended_as}`,
     `*App:* ${spec.apps} · <${link}|Slack thread> · <${saved.url}|Saved in GitHub>`,
@@ -365,7 +385,7 @@ export async function handleGrillInteraction(p: any): Promise<{ after?: () => Pr
   if (!g) throw new Error(`Grill button ${action.action_id}: grill ${r.t} not found`);
   const email = await userEmail(p.user.id);
   if (p.user.id !== g.grill.by && email !== OWNER_EMAIL) {
-    await slack("chat.postEphemeral", { channel: r.c, user: p.user.id, text: "Only Sam can answer this one." });
+    await slack("chat.postEphemeral", { channel: r.c, user: p.user.id, text: `Only ${g.grill.name} can answer this one.` });
     return null;
   }
   if (g.grill.stage !== "confirm") return null; // already pressed, or the grill moved on

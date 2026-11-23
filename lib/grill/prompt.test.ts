@@ -21,7 +21,7 @@ test("only Sam can grill", () => {
 });
 
 test("a grill's state survives the round trip through Slack metadata", () => {
-  const g = { by: "U1", idea: "A report", stage: "confirm" as const, title: "Morning pipeline", spec: "" };
+  const g = { by: "U1", name: "Rosie", idea: "A report", stage: "confirm" as const, title: "Morning pipeline", spec: "" };
   const meta = grillMeta(g);
   assert.ok(Object.values(meta.event_payload).every((v) => typeof v === "string"));
   assert.deepEqual(readGrill(meta), g);

@@ -160,7 +160,8 @@ Spec: project file `website-listings/website-listing-tool-spec.md`.
 
 ## Sam's grill, `/grill` (Jamie, 23 Nov 2026)
 - For ideas more ambitious than a request. **Only Sam** can start one (`GRILLERS` in `lib/config.ts`); anyone else is told
-  to post a normal request. `/grill <idea>` works from any channel; the grill happens in a thread in #app-requests.
+  to post a normal request. (Since 23 Nov a team member's request can also become a full grill once Sam taps *Grill it*: see
+  Right-sized grilling.) `/grill <idea>` works from any channel; the grill happens in a thread in #app-requests.
 - **Matt Pocock's grill-me skill, word for word** (Jamie: "use the exact skill I'm referencing"). grill-me's SKILL.md only
   says to use his "grilling" skill, so the bot's instructions are `grill/skills/grilling/SKILL.md`, copied unchanged from
   mattpocock-skills 1.2.3 (MIT). Never paraphrase it; to update it, copy the new file over. **The skill decides when it's
@@ -180,3 +181,24 @@ Spec: project file `website-listings/website-listing-tool-spec.md`.
   request is closed. From anyone else, "/grill" as a message is an ordinary request.
 - Others can chip in on the thread (Claude reads it), but only Sam's replies move the grill on. No reminders, no new
   scheduled job, not on the Request tracker (it isn't a request). Opus, high effort, on the bot's existing API key.
+
+## Right-sized grilling (Jamie, 23 Nov 2026)
+Jamie: the team (and Sam) can't judge when a request needs a full grill, so the bot decides how deep each request goes.
+One front door: everyone posts in #app-requests as usual; Sam's `/grill` still goes straight to the full grill.
+- **Reframe first.** A change request's first answer is "Here's how I read this": what they're really after (the outcome,
+  not the thing they named), what the apps already do, and a size. The requester taps **Yes, that's it**, or replies to
+  correct it and the bot reads it again. Not for "why is the app doing this?" questions, Fix it, or apps not offered.
+- **Three sizes.** *Quick fix* (typo, wording, a broken button): no question, or one. *Change* (a column, a filter, a
+  reminder): the mini grill as before. *New idea* (a new screen, report or routine, another system's data, customer
+  emails, a change to how the team works day to day): the full grill. When unsure between change and new idea, the bot
+  picks new idea, and Sam decides.
+- **Sam OKs a team member's full grill** (Jamie chose Sam). He gets *Grill it / Keep it small / Park* in a DM and in the
+  thread (Jamie can press them too). Grill it: the requester gets Matt Pocock's grill in their own thread, as Sam's
+  `/grill` does, and the spec goes to Jamie only, with a copy of the link to Sam; never into the build queue. Keep it
+  small: the usual few questions. Park: the requester is told it's parked. Sam's and Jamie's own new ideas go straight
+  to the full grill.
+- **Step up.** If the answers show a change is really a new idea (customer emails, a new screen, another system's
+  data, a new routine), the bot says so and asks Sam as above; the requester can instead tap *Keep it small (…)*,
+  which drops the part that made it big. A request kept small doesn't step up again.
+- Built in `lib/prompt.ts` (`reframe`, `step_up`, `enforce`), `lib/handlers.ts` (buttons) and `lib/grill/`
+  (`grillRequest`: the interviewee is whoever asked). The tracker shows "Bigger idea: Sam to say full grill?" under Sam.

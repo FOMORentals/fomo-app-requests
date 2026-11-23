@@ -10,6 +10,9 @@ export const CARD = "ar_request";
 export const APPROVAL = "ar_approval";
 
 export type Stage =
+  | "reframe" // Claude said how it reads the request and its size; waiting for the requester's "Yes, that's it" (23 Nov 2026)
+  | "gate" // a new idea (or one that stepped up): waiting for Sam's Grill it / Keep it small / Park
+  | "grill" // getting the full grill in this thread (lib/grill); the spec goes to Jamie
   | "grilling" // Claude asked questions; waiting on the requester
   | "confirm" // summary posted; waiting for the requester's ✅
   | "answered" // the app already does it, or it was a question: no change needed
@@ -72,7 +75,19 @@ export type Card = {
   verdict: "" | "as_designed" | "broken" | "should_change" | "unsure"; // what the latest look found
   fixing: boolean; // the requester tapped Fix it: the question is now a change request
   needs: Need[]; // what only a person can supply (e.g. a Rentman field's ID), with the answers given (23 Nov 2026)
+  // Right-sized grilling (Jamie, 23 Nov 2026): how Claude read the request, its size, and Sam's call on a new idea.
+  reframed: boolean; // the requester confirmed the reading
+  after: string; // what Claude read the requester as really being after
+  scope: Scope;
+  scopeWhy: string;
+  keepSmall: string; // on a step-up: what to drop to keep it a change
+  gate: "" | "grill" | "small" | "parked";
+  gateTs: string; // Sam's buttons in the thread
+  gateDmChannel: string;
+  gateDmTs: string;
 };
+
+export type Scope = "" | "quick_fix" | "change" | "new_idea";
 
 export function newCard(requester: string): Card {
   return {
@@ -111,11 +126,20 @@ export function newCard(requester: string): Card {
     verdict: "",
     fixing: false,
     needs: [],
+    reframed: false,
+    after: "",
+    scope: "",
+    scopeWhy: "",
+    keepSmall: "",
+    gate: "",
+    gateTs: "",
+    gateDmChannel: "",
+    gateDmTs: "",
   };
 }
 
 const NUMS = ["round", "askedAt", "issue", "pr", "pendingSince", "startedAt", "mergedAt", "catchUps", "looks", "lookIssue", "lookedAt"] as const;
-const BOOLS = ["nudged", "noDecision", "reminded", "fixing"] as const;
+const BOOLS = ["nudged", "noDecision", "reminded", "fixing", "reframed"] as const;
 const JSONS = ["summary", "needs"] as const;
 
 export function cardMeta(c: Card): Meta {
@@ -175,5 +199,5 @@ export function usesBuildSlot(s: Stage): boolean {
 
 /** Stages where the requester's reply in the thread restarts the questions. */
 export function reopensOnReply(s: Stage): boolean {
-  return s === "grilling" || s === "confirm" || s === "answered" || s === "explained" || s === "closed";
+  return s === "reframe" || s === "grilling" || s === "confirm" || s === "answered" || s === "explained" || s === "closed";
 }

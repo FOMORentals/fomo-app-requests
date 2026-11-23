@@ -51,8 +51,12 @@ export function groupOf(c: Card): Group {
       return "jamie";
     case "approval":
       return c.approver === "jamie" ? "jamie" : "sam";
+    case "gate":
+      return "sam";
+    case "reframe":
     case "grilling":
     case "confirm":
+    case "grill":
       return "requester";
     case "looking":
     case "queued":
@@ -77,6 +81,12 @@ const VERDICT: Record<Card["verdict"], string> = {
 /** The status in plain English, with a coloured dot. Pure. */
 export function statusOf(c: Card): string {
   switch (c.stage) {
+    case "reframe":
+      return ":speech_balloon: Checking what they mean";
+    case "gate":
+      return ":fire: Bigger idea: Sam to say full grill?";
+    case "grill":
+      return ":fire: Being grilled in full";
     case "grilling":
       return ":speech_balloon: Answering questions";
     case "confirm":

@@ -23,6 +23,7 @@ const q: Assessment = {
   questions: [],
   summary: { title: "", now: "", should: "", who: "", done: "", plan: "" },
   needs: [],
+  reframe: { after: "", exists: "", scope: "", why: "", keep_small: "" },
   reply_note: "",
 };
 

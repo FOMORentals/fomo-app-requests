@@ -7,7 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { OWNER } from "../config";
 import { fileNow, gh } from "../github";
-import { GRILL_MODEL, GRILL_REPOS, SETTING, SPEC_INSTRUCTIONS, type Turn } from "./prompt";
+import { GRILL_MODEL, GRILL_REPOS, setting, specInstructions, type Interviewee, type Turn } from "./prompt";
 
 let client: Anthropic | null = null;
 function api(): Anthropic {
@@ -105,10 +105,10 @@ async function runTool(name: string, input: Record<string, string>): Promise<str
   }
 }
 
-function system(skill: string, context: string): Anthropic.Beta.BetaTextBlockParam[] {
+function system(skill: string, context: string, who: Interviewee): Anthropic.Beta.BetaTextBlockParam[] {
   // The skill, the setting and the context change rarely: cached for an hour, as Sam's answers can take a while.
   return [
-    { type: "text", text: `${skill.trim()}\n\n${SETTING}` },
+    { type: "text", text: `${skill.trim()}\n\n${setting(who)}` },
     { type: "text", text: context, cache_control: { type: "ephemeral", ttl: "1h" } },
   ];
 }
@@ -135,7 +135,7 @@ function check(res: Anthropic.Beta.BetaMessage): void {
 }
 
 /** One round of the grilling: Claude looks things up as it needs, then writes the round or says it's done. */
-export async function grillRound(input: { skill: string; context: string; turns: Turn[]; images: Image[] }, started = Date.now()): Promise<RoundResult> {
+export async function grillRound(input: { skill: string; context: string; who: Interviewee; turns: Turn[]; images: Image[] }, started = Date.now()): Promise<RoundResult> {
   const msgs = messages(input.turns, input.images);
   for (let step = 0; ; step++) {
     const outOfTime = step >= MAX_TOOL_STEPS || Date.now() - started > LOOK_BUDGET_MS;
@@ -145,7 +145,7 @@ export async function grillRound(input: { skill: string; context: string; turns:
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       output_config: { effort: "high" },
-      system: system(input.skill, input.context),
+      system: system(input.skill, input.context, input.who),
       tools: TOOLS,
       // Out of time: no more lookups; Claude writes the round with what it has found.
       tool_choice: outOfTime ? { type: "none" } : { type: "auto" },
@@ -180,16 +180,16 @@ const SPEC_JSON_SCHEMA = {
   properties: {
     title: { type: "string", description: "Short name of the idea as agreed" },
     apps: { type: "string", description: "Which app(s), by the names the team uses" },
-    started_as: { type: "string", description: "One line: what Sam first asked for" },
+    started_as: { type: "string", description: "One line: what the person first asked for" },
     ended_as: { type: "string", description: "One line: what was agreed" },
     markdown: { type: "string", description: "The whole spec, in the sections asked for" },
   },
 };
 
 /** The spec for Jamie, from the whole thread. */
-export async function writeSpec(input: { skill: string; context: string; turns: Turn[]; date: string; link: string }): Promise<Spec> {
+export async function writeSpec(input: { skill: string; context: string; who: Interviewee; turns: Turn[]; date: string; link: string }): Promise<Spec> {
   const turns: Turn[] = [...input.turns];
-  const ask = `${SPEC_INSTRUCTIONS}\n\nDate: ${input.date}. Slack thread: ${input.link}`;
+  const ask = `${specInstructions(input.who)}\n\nDate: ${input.date}. Slack thread: ${input.link}`;
   if (turns[turns.length - 1].role === "user") turns[turns.length - 1] = { role: "user", text: `${turns[turns.length - 1].text}\n\n${ask}` };
   else turns.push({ role: "user", text: ask });
   const res = await api().beta.messages.create({
@@ -198,7 +198,7 @@ export async function writeSpec(input: { skill: string; context: string; turns: 
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
     output_config: { effort: "high", format: { type: "json_schema", schema: SPEC_JSON_SCHEMA } },
-    system: system(input.skill, input.context),
+    system: system(input.skill, input.context, input.who),
     messages: messages(turns, []),
   });
   check(res);
