@@ -37,6 +37,7 @@ import {
 } from "./actions";
 import { enforce, missingNeeds, notesBlock, transcript, turnPrompt, type Assessment } from "./prompt";
 import { approvalMeta, cardMeta, decodeRef, encodeRef, newCard, reopensOnReply } from "./records";
+import { grillReply } from "./grill/handlers";
 import { report } from "./report";
 import { channel as requestsChannel, fileBase64, slack, userEmail } from "./slack";
 
@@ -52,7 +53,12 @@ export async function handleEvent(e: any): Promise<void> {
   const isNew = !e.thread_ts || e.thread_ts === e.ts;
   if (isNew) return newRequest(e.channel, e.ts, e.user);
   const l = await load(e.channel, e.thread_ts);
-  if (!l || e.user !== l.card.requester || !reopensOnReply(l.card.stage)) return;
+  // Not a request: maybe one of Sam's grills (lib/grill, Jamie 23 Nov 2026).
+  if (!l) {
+    await grillReply(e);
+    return;
+  }
+  if (e.user !== l.card.requester || !reopensOnReply(l.card.stage)) return;
   return turn(l);
 }
 

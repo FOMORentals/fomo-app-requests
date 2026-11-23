@@ -1,4 +1,5 @@
 import { after, NextResponse } from "next/server";
+import { handleGrillInteraction, isGrillAction } from "@/lib/grill/handlers";
 import { handleInteraction } from "@/lib/handlers";
 import { handleListingInteraction, isListingAction } from "@/lib/listings/handlers";
 import { report } from "@/lib/report";
@@ -14,7 +15,12 @@ export async function POST(req: Request) {
   const payload = JSON.parse(new URLSearchParams(raw).get("payload") ?? "{}");
   try {
     // Website listings (/list-kit) have their own buttons and form, all named lk_…
-    const body = isListingAction(payload) ? await handleListingInteraction(payload) : await handleInteraction(payload);
+    // Sam's grill buttons are named grill_…
+    const body = isGrillAction(payload)
+      ? await handleGrillInteraction(payload)
+      : isListingAction(payload)
+        ? await handleListingInteraction(payload)
+        : await handleInteraction(payload);
     if (body && "after" in body && typeof body.after === "function") {
       const work = body.after as () => Promise<void>;
       after(() =>
