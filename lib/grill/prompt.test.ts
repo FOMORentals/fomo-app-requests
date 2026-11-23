@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { canGrill, grillMeta, grillText, isGrillAction, readGrill } from "./handlers";
-import { SKILL_FILE, contextBlock, conversation, slugify, specPath, toSlack } from "./prompt";
+import { SKILL_FILE, SLACK_PART, contextBlock, conversation, slugify, specPath, splitForSlack, toSlack } from "./prompt";
 
 test("the grill uses Matt Pocock's grilling skill, as shipped (grill-me just points to it)", () => {
   const me = readFileSync("grill/skills/grill-me/SKILL.md", "utf8");
@@ -88,4 +88,19 @@ test('"/grill idea" typed as a message is recognised, however Slack formats it',
   assert.equal(grillText("/grilling is fun"), null);
   assert.equal(grillText("please /grill this"), null);
   assert.equal(grillText(undefined), null);
+});
+
+test("a long round is split into messages Slack accepts, losing nothing (msg_too_long, 23 Nov 2026)", () => {
+  const paras = Array.from({ length: 12 }, (_, i) => `❓ *Q${i + 1}* ${"word ".repeat(150)}`.trim());
+  const text = paras.join("\n\n");
+  const parts = splitForSlack(text);
+  assert.ok(parts.length > 1);
+  for (const p of parts) assert.ok(p.length <= SLACK_PART, String(p.length));
+  assert.equal(parts.join("\n\n"), text); // split only at blank lines here
+  assert.deepEqual(splitForSlack("short"), ["short"]);
+  const long = "x".repeat(SLACK_PART * 2 + 10); // one huge line still fits, in hard cuts
+  assert.equal(splitForSlack(long).join(""), long);
+  assert.ok(splitForSlack(long).every((p) => p.length <= SLACK_PART));
+  const lines = Array.from({ length: 200 }, (_, i) => `- line ${i} ${"y".repeat(30)}`).join("\n"); // one long paragraph
+  assert.equal(splitForSlack(lines).join("\n"), lines);
 });
