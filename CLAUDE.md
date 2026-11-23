@@ -19,7 +19,11 @@ Setup: `docs/SETUP.md`.
   `app-question.yml` (looks into a question, read only, reports to `/api/question/callback`) and
   `design-notes.yml` (the "Design notes" check).
 
-External calls: Slack, GitHub, Anthropic. Nothing else.
+- `lib/listings/` website listings (`/list-kit`, Jamie 23 Nov 2026): the AI drafts a new purchase's website fields,
+  the team edits them, Jamie, Sam or Will publish. Its Rentman call budget is at the top of `lib/listings/rentman.ts`.
+
+External calls: Slack, GitHub, Anthropic. Website listings only also call Rentman (through `@fomo/rentman-core`'s
+guard, vendored in `vendor/`), Firestore fomo-bookings-board-v2 and the website-sync Cloud Run job. Nothing else.
 Before saying done: `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`.
 
 Every PR description has a `## Team note` section (see the PR template). It is what the team reads in

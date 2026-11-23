@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { report } from "@/lib/report";
+import { runListingsTick } from "@/lib/listings/tick";
 import { runTick } from "@/lib/tick";
 
 // Vercel cron, every 15 min at :07 (vercel.json).
@@ -19,8 +20,16 @@ export async function GET(req: Request) {
   const started = Date.now();
   try {
     const result = await runTick(started);
-    console.log("TICK", JSON.stringify({ ...result, ms: Date.now() - started }));
-    return NextResponse.json(result, { status: result.failures > 0 || result.incomplete ? 502 : 200 });
+    // Website listings (/list-kit): reminders and "now live". Its own failure doesn't hide the requests' result.
+    let listings;
+    try {
+      listings = await runListingsTick(started);
+    } catch (err) {
+      report(err, "tick.listings");
+      listings = { reminded: 0, live: 0, missing: 0, failures: 1 };
+    }
+    console.log("TICK", JSON.stringify({ ...result, listings, ms: Date.now() - started }));
+    return NextResponse.json({ ...result, listings }, { status: result.failures > 0 || listings.failures > 0 || result.incomplete ? 502 : 200 });
   } catch (err) {
     report(err, "tick");
     return NextResponse.json({ error: String(err) }, { status: 502 });

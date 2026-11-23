@@ -10,7 +10,7 @@ function token(): string {
   return t;
 }
 
-async function gh(path: string, init: { method?: string; body?: unknown; accept?: string; allow404?: boolean } = {}): Promise<Response> {
+export async function gh(path: string, init: { method?: string; body?: unknown; accept?: string; allow404?: boolean } = {}): Promise<Response> {
   const res = await fetch(`https://api.github.com${path}`, {
     method: init.method ?? "GET",
     headers: {
