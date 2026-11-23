@@ -14,7 +14,7 @@ import { report } from "../report";
 import { channel as requestsChannel, fileBase64, messageLink, replies, slack, userEmail, type Meta, type SlackMessage } from "../slack";
 import { londonDate } from "../time";
 import { grillRound, writeSpec, type Image } from "./claude";
-import { CONTEXT_FILES, SKILL_FILE, clip, contextBlock, conversation, interviewee, specPath, toSlack, type ThreadMsg } from "./prompt";
+import { CONTEXT_FILES, SKILL_FILE, SLACK_PART, clip, contextBlock, conversation, interviewee, specPath, splitForSlack, toSlack, type ThreadMsg } from "./prompt";
 
 export const GRILL = "ar_grill"; // the thread's first message: the grill's state
 export const ROUND = "ar_grill_round"; // a round (or the shared understanding) Claude wrote: part of the conversation
@@ -80,18 +80,25 @@ function rootBlocks(g: Grill): object[] {
 
 const ref = (g: { channel: string; thread: string }) => JSON.stringify({ c: g.channel, t: g.thread });
 
+function confirmButtons(g: { channel: string; thread: string }): object {
+  return {
+    type: "actions",
+    elements: [
+      { type: "button", style: "primary", text: { type: "plain_text", text: "Yes, write the spec" }, action_id: "grill_yes", value: ref(g) },
+      { type: "button", text: { type: "plain_text", text: "Not yet" }, action_id: "grill_not_yet", value: ref(g) },
+    ],
+  };
+}
+
+function confirmBlocks(g: { channel: string; thread: string }): object[] {
+  return [{ type: "section", text: { type: "mrkdwn", text: "Is that right? If so I'll write it up for Jamie." } }, confirmButtons(g)];
+}
+
 function checkBlocks(title: string, understanding: string, g: { channel: string; thread: string }): object[] {
   return [
     { type: "section", text: { type: "mrkdwn", text: `I think we've reached a shared understanding. Here's where we landed on *${title}*:` } },
     { type: "section", text: { type: "mrkdwn", text: clip(toSlack(understanding), 2900) } },
-    { type: "section", text: { type: "mrkdwn", text: "Is that right? If so I'll write it up for Jamie." } },
-    {
-      type: "actions",
-      elements: [
-        { type: "button", style: "primary", text: { type: "plain_text", text: "Yes, write the spec" }, action_id: "grill_yes", value: ref(g) },
-        { type: "button", text: { type: "plain_text", text: "Not yet" }, action_id: "grill_not_yet", value: ref(g) },
-      ],
-    },
+    ...confirmBlocks(g),
   ];
 }
 
@@ -251,18 +258,31 @@ async function round(g: G, again = 0): Promise<void> {
     if (turns[turns.length - 1].role !== "user") throw new Error(`Nothing new from ${g.grill.name} to answer`);
     const r = await grillRound({ ...(await inputs()), who: interviewee(g.grill.name), turns, images });
     if (r.kind === "round") {
-      await slack("chat.update", { channel: g.channel, ts: holder.ts, text: clip(toSlack(r.text)), metadata: { event_type: ROUND, event_payload: { kind: "round" } } });
+      await postParts(g, holder.ts, toSlack(r.text));
       next = "grilling";
     } else if (r.kind === "check") {
       g.grill.title = r.title.slice(0, 120);
-      // The text (what Claude reads back next turn) is the understanding; the blocks add the buttons.
-      await slack("chat.update", {
-        channel: g.channel,
-        ts: holder.ts,
-        text: clip(`I think we've reached a shared understanding on "${r.title}":\n${r.understanding}\nIs that right?`),
-        blocks: checkBlocks(r.title, r.understanding, g),
-        metadata: { event_type: ROUND, event_payload: { kind: "check" } },
-      });
+      const full = `I think we've reached a shared understanding on "${r.title}":\n${toSlack(r.understanding)}`;
+      if (full.length + 20 <= SLACK_PART && r.understanding.length <= 2900) {
+        // The text (what Claude reads back next turn) is the understanding; the blocks add the buttons.
+        await slack("chat.update", {
+          channel: g.channel,
+          ts: holder.ts,
+          text: `${full}\nIs that right?`,
+          blocks: checkBlocks(r.title, r.understanding, g),
+          metadata: { event_type: ROUND, event_payload: { kind: "check" } },
+        });
+      } else {
+        // Too long for one Slack message: the understanding in parts, then the buttons on their own.
+        await postParts(g, holder.ts, full);
+        await slack("chat.postMessage", {
+          channel: g.channel,
+          thread_ts: g.thread,
+          text: "Is that right? If so I'll write it up for Jamie.",
+          blocks: confirmBlocks(g),
+          metadata: { event_type: ROUND, event_payload: { kind: "check" } },
+        });
+      }
       next = "confirm";
     } else {
       await slack("chat.delete", { channel: g.channel, ts: holder.ts }).catch(() => {});
@@ -290,6 +310,14 @@ async function round(g: G, again = 0): Promise<void> {
   fresh.grill.title = g.grill.title;
   await saveGrill(fresh);
   if (again < 2 && latestFromStarter(fresh) > seen) await round(fresh, again + 1);
+}
+
+/** A round in as many messages as Slack needs: the first replaces "Looking into it", the rest follow. All are part of
+ * the conversation (ROUND), so Claude reads them back whole next turn. */
+async function postParts(g: G, holderTs: string, text: string): Promise<void> {
+  const parts = splitForSlack(text);
+  await slack("chat.update", { channel: g.channel, ts: holderTs, text: parts[0], metadata: { event_type: ROUND, event_payload: { kind: "round" } } });
+  for (const part of parts.slice(1)) await slack("chat.postMessage", { channel: g.channel, thread_ts: g.thread, text: part, metadata: { event_type: ROUND, event_payload: { kind: "round" } }, unfurl_links: false });
 }
 
 // ---------- The spec ----------

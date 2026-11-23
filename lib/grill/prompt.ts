@@ -117,6 +117,32 @@ export function clip(text: string, max = 35_000): string {
   return text.length <= max ? text : `${text.slice(0, max)}\n…(cut short)`;
 }
 
+/** Slack refuses a message whose text is much over 4,000 characters (msg_too_long, Sam's grill, 23 Nov 2026). */
+export const SLACK_PART = 3500;
+
+/** Splits a long round into messages Slack accepts: at blank lines, then line breaks, then hard. Nothing is lost. Pure, tested. */
+export function splitForSlack(text: string, max = SLACK_PART): string[] {
+  // Smallest pieces first: paragraphs, then lines of an over-long paragraph, then hard cuts of an over-long line.
+  const pieces: { text: string; sep: string }[] = [];
+  for (const para of text.split("\n\n")) {
+    const lines = para.length <= max ? [para] : para.split("\n");
+    lines.forEach((line, i) => {
+      const cuts = line.length <= max ? [line] : (line.match(new RegExp(`[\\s\\S]{1,${max}}`, "g")) ?? []);
+      cuts.forEach((c, k) => pieces.push({ text: c, sep: k > 0 ? "" : i > 0 ? "\n" : "\n\n" }));
+    });
+  }
+  const out: string[] = [];
+  let cur = "";
+  for (const p of pieces) {
+    if (cur && cur.length + p.sep.length + p.text.length > max) {
+      out.push(cur);
+      cur = p.text;
+    } else cur = cur ? cur + p.sep + p.text : p.text;
+  }
+  if (cur || !out.length) out.push(cur);
+  return out.map((o) => o.trim()).filter((o, i, a) => o || a.length === 1);
+}
+
 export function slugify(title: string): string {
   return (
     title
