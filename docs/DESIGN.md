@@ -49,12 +49,16 @@ change it here the same day (rule 7).
 - The Slack side uses a small API key on the jamie@fomorentals.co.uk Console org with a spend limit.
 - Guard rails: no live keys in builds; builds can't edit `.github/`, `.env` files or `vercel.json`;
   request text is data, not instructions; at most 2 retries per build; at most 3 builds at once.
+- The build robot commits as `Claude <noreply@anthropic.com>`. Don't change it: Vercel blocks the preview of any
+  commit whose author email matches no GitHub account, so every app-request preview went red while it committed
+  as app-requests@fomorentals.co.uk (fixed 18 Nov 2026).
 
 ## Keeping decisions current (Jamie, 17 Nov 2026, all five)
 1. Per-app design notes (`docs/DESIGN.md` + `CLAUDE.md`), read fresh at every request.
 2. The "Design notes" GitHub check (`templates/design-notes.yml`, copied into each app repo).
 3. Decisions made in a chat are written down the same day (engineering rule 7).
-4. A Monday sweep compares project memory with the notes and DMs Jamie any gaps.
+4. A Monday sweep compares project memory with the notes. It is a scheduled task (Mondays 08:34 London) that runs
+   as a new thread in Jamie's claude.ai project and reports the gaps there, not as a Slack DM (Jamie, 17 Nov 2026).
 5. "No recorded decision" is shown in DMs.
 
 ## Audit, 19 Nov 2026 (Jamie)
