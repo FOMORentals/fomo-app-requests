@@ -174,5 +174,9 @@ Spec: project file `website-listings/website-listing-tool-spec.md`.
   meeting with Louis and Rosie.
 - **The spec goes to Jamie only**: a Slack DM with the .md attached, and a copy in this repo's `specs/`. It never goes
   into the build queue; Jamie reviews it with Claude and it gets built from there.
+- **"/grill idea" typed as an ordinary message** in #app-requests also starts a grill, in Sam's own thread (23 Nov 2026:
+  Sam's first one arrived as text, before `/grill` was installed in Slack, and the normal request flow asked him 3
+  questions). A thread like that which the request flow already took becomes a grill on Sam's next reply there; the
+  request is closed. From anyone else, "/grill" as a message is an ordinary request.
 - Others can chip in on the thread (Claude reads it), but only Sam's replies move the grill on. No reminders, no new
   scheduled job, not on the Request tracker (it isn't a request). Opus, high effort, on the bot's existing API key.
