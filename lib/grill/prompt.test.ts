@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { canGrill, grillMeta, isGrillAction, readGrill } from "./handlers";
+import { canGrill, grillMeta, grillText, isGrillAction, readGrill } from "./handlers";
 import { SKILL_FILE, contextBlock, conversation, slugify, specPath, toSlack } from "./prompt";
 
 test("the grill uses Matt Pocock's grilling skill, as shipped (grill-me just points to it)", () => {
@@ -78,4 +78,14 @@ test("context leaves out empty design notes and keeps the status file", () => {
   assert.match(c, /fomo-bookings-board-v2\/docs\/DESIGN.md/);
   assert.doesNotMatch(c, /fomo-overtime\/docs\/DESIGN.md/);
   assert.doesNotMatch(c, /grill\/context\/x.md/);
+});
+
+test('"/grill idea" typed as a message is recognised, however Slack formats it', () => {
+  assert.equal(grillText("/grill a morning view"), "a morning view");
+  assert.equal(grillText("`/grill` each morning, I'd like\nto sit down"), "each morning, I'd like\nto sit down");
+  assert.equal(grillText("  /GRILL   x"), "x");
+  assert.equal(grillText("/grill"), "");
+  assert.equal(grillText("/grilling is fun"), null);
+  assert.equal(grillText("please /grill this"), null);
+  assert.equal(grillText(undefined), null);
 });

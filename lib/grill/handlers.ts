@@ -8,7 +8,7 @@
  * External calls: Slack, GitHub (reads, and one file written to specs/ per spec), Anthropic. No new scheduled job.
  */
 import { APPS, GRILLERS, OWNER, OWNER_EMAIL } from "../config";
-import { botId, dm } from "../actions";
+import { botId, dm, load, save } from "../actions";
 import { fileNow, gh } from "../github";
 import { report } from "../report";
 import { channel as requestsChannel, fileBase64, messageLink, replies, slack, userEmail, type Meta, type SlackMessage } from "../slack";
@@ -36,19 +36,30 @@ export function readGrill(m: Meta | undefined): Grill | null {
 
 export const canGrill = (email: string) => GRILLERS.includes(email.trim().toLowerCase());
 
-type G = { channel: string; thread: string; grill: Grill; messages: SlackMessage[] };
+/** cardTs: the bot's message holding the grill's state. The thread's first message after /grill, or a reply in the
+ * thread when Sam typed "/grill ..." as an ordinary message (it then lives in his own thread). */
+type G = { channel: string; thread: string; cardTs: string; grill: Grill; messages: SlackMessage[] };
+
+/** "/grill idea" typed as an ordinary message (Slack sends it as text when the command isn't installed, or when it's
+ * formatted as code). Returns the idea, or null. Pure, tested. */
+export function grillText(text: string | undefined): string | null {
+  const m = (text ?? "").match(/^\s*`?\/grill`?(?:\s+|$)([\s\S]*)$/i);
+  return m ? m[1].trim() : null;
+}
 
 async function loadGrill(channel: string, thread: string): Promise<G | null> {
   const messages = await replies(channel, thread);
-  const root = messages.find((m) => m.ts === thread);
   const me = await botId();
-  if (!root || root.bot_id !== me) return null;
-  const grill = readGrill(root.metadata);
-  return grill ? { channel, thread, grill, messages } : null;
+  for (const m of messages) {
+    if (m.bot_id !== me) continue;
+    const grill = readGrill(m.metadata);
+    if (grill) return { channel, thread, cardTs: m.ts, grill, messages };
+  }
+  return null;
 }
 
 async function saveGrill(g: G): Promise<void> {
-  await slack("chat.update", { channel: g.channel, ts: g.thread, text: rootText(g.grill), blocks: rootBlocks(g.grill), metadata: grillMeta(g.grill) });
+  await slack("chat.update", { channel: g.channel, ts: g.cardTs, text: rootText(g.grill), blocks: rootBlocks(g.grill), metadata: grillMeta(g.grill) });
 }
 
 function rootText(g: Grill): string {
@@ -96,19 +107,42 @@ export async function handleGrillCommand(p: Record<string, string>): Promise<Res
     body: { response_type: "ephemeral", text: "Starting your grill in #app-requests…" },
     after: async () => {
       const ch = requestsChannel();
-      const grill: Grill = { by: p.user_id, idea: clip(idea, 3000), stage: "grilling", title: "", spec: "" };
-      const root = await slack<{ ts: string }>("chat.postMessage", { channel: ch, text: rootText(grill), blocks: rootBlocks(grill), metadata: grillMeta(grill), unfurl_links: false });
-      const link = await messageLink(ch, root.ts);
-      await fetch(p.response_url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ response_type: "ephemeral", replace_original: true, text: `Your grill has started in #app-requests: <${link}|open the thread>.` }),
-      }).catch((err) => report(err, "grill.command.respond"));
-      const g = await loadGrill(ch, root.ts);
-      if (!g) throw new Error(`Grill ${root.ts}: its first message wasn't found after posting it`);
-      await round(g);
+      await startGrill(ch, null, p.user_id, idea, async (thread) => {
+        const link = await messageLink(ch, thread);
+        await fetch(p.response_url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ response_type: "ephemeral", replace_original: true, text: `Your grill has started in #app-requests: <${link}|open the thread>.` }),
+        }).catch((err) => report(err, "grill.command.respond"));
+      });
     },
   };
+}
+
+/** Posts the grill's card (a new thread, or a reply in `thread`) and asks the first round. */
+async function startGrill(ch: string, thread: string | null, by: string, idea: string, started?: (thread: string) => Promise<void>): Promise<void> {
+  const grill: Grill = { by, idea: clip(idea, 3000), stage: "grilling", title: "", spec: "" };
+  const card = await slack<{ ts: string }>("chat.postMessage", { channel: ch, thread_ts: thread ?? undefined, text: rootText(grill), blocks: rootBlocks(grill), metadata: grillMeta(grill), unfurl_links: false });
+  const t = thread ?? card.ts;
+  if (started) await started(t);
+  const g = await loadGrill(ch, t);
+  if (!g) throw new Error(`Grill ${t}: its card wasn't found after posting it`);
+  await round(g);
+}
+
+/**
+ * Sam typed "/grill idea" as an ordinary message in #app-requests (23 Nov 2026: his first one arrived as text and was
+ * treated as a normal request). Starts the grill in his own thread. Returns false when it isn't one of Sam's grills.
+ */
+export async function grillFromMessage(channel: string, ts: string, user: string, text: string | undefined): Promise<boolean> {
+  const idea = grillText(text);
+  if (idea === null || !canGrill(await userEmail(user))) return false;
+  if (!idea) {
+    await slack("chat.postMessage", { channel, thread_ts: ts, text: "Tell me the idea after /grill, for example: /grill a morning view of upcoming quotes by bookie." });
+    return true;
+  }
+  await startGrill(channel, ts, user, idea);
+  return true;
 }
 
 // ---------- Replies in a grill thread ----------
@@ -117,7 +151,7 @@ export async function handleGrillCommand(p: Record<string, string>): Promise<Res
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function grillReply(e: any): Promise<boolean> {
   const g = await loadGrill(e.channel, e.thread_ts);
-  if (!g) return false;
+  if (!g) return convert(e);
   // Others can chip in (Claude reads it next round), but only Sam's replies move the grill on.
   if (e.user !== g.grill.by) return true;
   if (g.grill.stage === "thinking" || g.grill.stage === "writing") return true; // the running turn picks it up when it ends
@@ -129,6 +163,27 @@ export async function grillReply(e: any): Promise<boolean> {
   return true;
 }
 
+/**
+ * A thread Sam started with "/grill ..." as text before the bot knew that form: the normal request flow took it. On his
+ * next reply there, the request is closed and the grill starts in the same thread.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function convert(e: any): Promise<boolean> {
+  const messages = await replies(e.channel, e.thread_ts);
+  const root = messages.find((m) => m.ts === e.thread_ts);
+  if (!root || root.user !== e.user || root.bot_id) return false;
+  const idea = grillText(root.text);
+  if (!idea || !canGrill(await userEmail(e.user))) return false;
+  const l = await load(e.channel, e.thread_ts);
+  if (l && l.card.stage !== "closed") {
+    l.card.stage = "closed";
+    l.card.note = "Became a grill (/grill)";
+    await save(l);
+  }
+  await startGrill(e.channel, e.thread_ts, e.user, idea);
+  return true;
+}
+
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
 const MAX_IMAGE_BYTES = 3_500_000;
 
@@ -136,7 +191,7 @@ async function threadMsgs(g: G, me: string): Promise<{ msgs: ThreadMsg[]; images
   const msgs: ThreadMsg[] = [];
   const files: { url: string; type: Image["mediaType"] }[] = [];
   for (const m of g.messages) {
-    if (m.ts === g.thread) continue;
+    if (m.ts === g.thread || m.ts === g.cardTs) continue; // the idea comes from the card
     if (m.bot_id) {
       if (m.bot_id === me && m.metadata?.event_type === ROUND) msgs.push({ who: "bot", name: "bot", text: m.text ?? "", images: 0 });
       continue; // status lines ("Looking into it", "Spec sent") aren't part of the conversation
