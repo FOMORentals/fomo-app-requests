@@ -5,12 +5,15 @@
  * 3. Queued builds start when a slot frees up.
  * 4. Builds that never reported back are marked failed (rule 1). So are looks into the code (questions) after 45 minutes.
  * 5. Merged changes: checks the live deploy actually happened before saying "Live" (rule 5).
+ * 6. Redraws the Request tracker tab from the requests it has just read (no extra thread reads). This catches up
+ *    after a redraw that failed when a request moved on, and moves finished requests off after 14 days.
  * Runs at most 60 s (maxDuration) against a 15-minute interval, so two runs can't overlap and no lock is needed.
  * It stops itself at 50 s and logs INCOMPLETE (rule 2). One failure doesn't stop the rest; failures are counted (rule 1).
  */
 import { allRequests, appOf, buildsRunning, dm, link, postInThread, save, startBuild, type Loaded } from "./actions";
 import { APPROVER_EMAIL, OWNER_EMAIL } from "./config";
 import { productionDeploy } from "./github";
+import { refreshTracker } from "./tracker";
 import { report } from "./report";
 import { channel } from "./slack";
 import { addWorkingDays, isMorningSlot, londonDate } from "./time";
@@ -129,5 +132,6 @@ export async function runTick(now = Date.now()): Promise<TickResult> {
       }
     }
   }
+  if (!(await refreshTracker(all, now))) r.failures++;
   return r;
 }

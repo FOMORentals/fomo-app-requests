@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { handleEvent } from "@/lib/handlers";
 import { report } from "@/lib/report";
 import { verifySlackSignature } from "@/lib/slack";
+import { refreshTrackerIfChanged } from "@/lib/tracker";
 
 // Claude reads the thread after Slack has had its answer (Slack wants one within 3 seconds).
 export const maxDuration = 300;
@@ -15,7 +16,12 @@ export async function POST(req: Request) {
   // Slack retries when it thinks we were slow. We always answer at once, so a retry is a duplicate.
   if (req.headers.get("x-slack-retry-num")) return new NextResponse(null, { status: 200 });
   if (body.type === "event_callback") {
-    after(() => handleEvent(body.event).catch((err) => report(err, "slack.event", { type: body.event?.type, ts: body.event?.ts })));
+    // Then the Request tracker tab, if the request moved on (lib/tracker.ts).
+    after(() =>
+      handleEvent(body.event)
+        .catch((err) => report(err, "slack.event", { type: body.event?.type, ts: body.event?.ts }))
+        .then(() => refreshTrackerIfChanged()),
+    );
   }
   return new NextResponse(null, { status: 200 });
 }

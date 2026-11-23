@@ -30,8 +30,23 @@ export async function load(channel: string, thread: string): Promise<Loaded | nu
   return null;
 }
 
+let changed = false;
+
+/** Whether a card was written since the tracker last read them (lib/tracker.ts); `reset` clears it. */
+export function cardsChanged(reset: boolean): boolean {
+  const was = changed;
+  if (reset) changed = false;
+  return was;
+}
+
+/** Marks the tracker as needing a redraw: every new or saved card calls this. */
+export function markChanged(): void {
+  changed = true;
+}
+
 /** Writes the request's data back onto its status card and redraws the status line. */
 export async function save(l: Loaded): Promise<void> {
+  markChanged();
   const app = appByKey(l.card.app);
   await slack("chat.update", {
     channel: l.channel,

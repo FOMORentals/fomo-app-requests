@@ -29,6 +29,9 @@ oauth_config:
       - im:write
       - files:read
       - commands
+      - channels:read # the Request tracker finds the channel's canvas (23 Nov 2026)
+      - canvases:read
+      - canvases:write
 settings:
   event_subscriptions:
     request_url: APP_URL/api/slack/events
