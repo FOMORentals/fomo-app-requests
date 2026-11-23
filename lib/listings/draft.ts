@@ -189,7 +189,7 @@ export function problems(e: Equip | null, d: Draft, category: string | null, con
   const rentman = (what: string) => out.push({ what, where: "rentman" });
   const draft = (what: string) => out.push({ what, where: "draft" });
   if (e.in_archive) rentman("It's archived in Rentman.");
-  if (!e.image) rentman("It has no photo. Upload one on the item in Rentman, then press Check again.");
+  if (!e.image) rentman("It has no photo. Drop the photo in this thread for a cut-out, upload the cut-out on the item in Rentman, then press Check again.");
   if (!(Number(e.price) > 0)) rentman("Its day rate is £0. Set the rental price in Rentman.");
   if (e.in_planner === false) rentman("It isn't available in the planner. Switch that on in Rentman.");
   if (!category) rentman("Its folder isn't under one of the website's categories (Cameras, Lenses, Lighting, Grip, Accessories, Audio). Move it in Rentman.");

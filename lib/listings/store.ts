@@ -22,6 +22,13 @@ export async function getListing(rentmanId: number): Promise<Listing | null> {
   return s.exists ? (s.data() as Listing) : null;
 }
 
+/** The listing whose card is this Slack message (a photo dropped in the card's thread). */
+export async function listingByCard(channel: string, cardTs: string): Promise<Listing | null> {
+  const q = await db().collection(LISTINGS).where("cardTs", "==", cardTs).limit(5).get();
+  const hit = q.docs.map((d) => d.data() as Listing).find((l) => l.channel === channel);
+  return hit ?? null;
+}
+
 export async function saveListing(l: Listing): Promise<void> {
   await db().collection(LISTINGS).doc(String(l.rentmanId)).set(clean(l));
 }

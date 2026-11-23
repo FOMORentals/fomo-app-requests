@@ -157,6 +157,12 @@ Spec: project file `website-listings/website-listing-tool-spec.md`.
 - This is the first part of this app to call Rentman and Google Cloud (Firestore fomo-bookings-board-v2 for drafts,
   the shared circuit and the writer lease; the website-sync Cloud Run job for Go live now). Drafts live in Firestore,
   not Slack metadata, because long descriptions don't fit there.
+- **Cut-out photos** (Jamie, 23 Nov 2026 evening): kit photos go into Rentman cut out (transparent background,
+  trimmed, soft shadow: the website's recipe), never raw. Drop a photo in a listing card's thread and the cut-out
+  comes back in the thread in about 2 minutes; someone uploads it to the item in Rentman by hand (still no photo
+  uploads by the app). The background remover is too big for Vercel, so it runs in GitHub Actions in this repo
+  (`.github/workflows/listing-cutout.yml`, Jamie chose it over a new Google Cloud service: a few photos a week). The
+  Slack token stays in Vercel: the workflow fetches and returns the photo through `/api/listings/cutout`, signed.
 
 ## Sam's grill, `/grill` (Jamie, 23 Nov 2026)
 - For ideas more ambitious than a request. **Only Sam** can start one (`GRILLERS` in `lib/config.ts`); anyone else is told
