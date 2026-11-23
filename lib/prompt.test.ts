@@ -21,6 +21,7 @@ const base: Assessment = {
     { q: "d", suggested: "x" },
   ],
   summary: { title: "t", now: "", should: "", who: "", done: "", plan: "" },
+  needs: [],
   reply_note: "",
 };
 
@@ -75,4 +76,36 @@ test("the rules send unknown data to Jamie and keep small fixes with Sam", () =>
   assert.match(RULES, /needs information the design notes don't say the app already has/);
   assert.match(RULES, /Never call it small on an assumption/);
   assert.match(RULES, /Never tell the requester Jamie will look at a small fix/);
+});
+
+// Jamie, 23 Nov 2026: Louis's In house prep request failed at build because nobody was asked for the Rentman field's ID.
+const field = { what: "Create a Yes/No field called In house prep on Projects, and send its ID", where: "Rentman: Settings, Extra input fields", value: "" };
+
+test("a missing Rentman field ID is asked for before the summary", () => {
+  const a = enforce({ ...base, next: "summarise", questions: [], needs: [field] }, 1, appByKey("dashboard"));
+  assert.equal(a.next, "ask");
+});
+
+test("it gets one extra round just for the ID, with no more numbered questions", () => {
+  const a = enforce({ ...base, next: "ask", needs: [field] }, MAX_ROUNDS, appByKey("dashboard"));
+  assert.equal(a.next, "ask");
+  assert.equal(a.questions.length, 0);
+});
+
+test("still missing after that, it goes to Jamie as a proposal naming what's needed", () => {
+  const a = enforce({ ...base, next: "summarise", needs: [field] }, MAX_ROUNDS + 1, appByKey("dashboard"));
+  assert.equal(a.next, "summarise");
+  assert.equal(a.tier, "bigger");
+  assert.ok(a.bigger_reasons.some((r) => r.includes("In house prep")));
+});
+
+test("once the ID is given, it summarises as normal", () => {
+  const a = enforce({ ...base, next: "summarise", needs: [{ ...field, value: "54" }] }, 1, appByKey("dashboard"));
+  assert.equal(a.next, "summarise");
+  assert.equal(a.tier, "small");
+});
+
+test("the rules say never to guess a Rentman field ID and how to find one", () => {
+  assert.match(RULES, /must never guess it/);
+  assert.match(RULES, /Extra input fields/);
 });

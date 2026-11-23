@@ -49,6 +49,14 @@ export function issueBody(o: {
     "## What to build (confirmed by the requester)",
     plain(s),
   ];
+  const given = (card.needs ?? []).filter((n) => n.value.trim());
+  if (given.length) {
+    parts.push("", "## Details the team supplied (use exactly these)", ...given.map((n) => `- ${n.what}: **${n.value}**`));
+  }
+  parts.push(
+    "",
+    "If the change needs a value this issue doesn't give and the code doesn't already have (for example the ID of a Rentman extra input field), never guess it: stop, and say exactly what someone has to create or look up and where.",
+  );
   if (card.contradiction) {
     parts.push(
       "",

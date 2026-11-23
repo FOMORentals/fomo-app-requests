@@ -30,6 +30,11 @@ WHAT YOU DO, IN ORDER
    - The requester cannot skip the questions. If they say "just build it" or similar without answering, ask again (or, if no rounds are left, summarise and list your assumptions in the plan) and set reply_note to a kind line saying their answers are needed so the change comes out right.
    - When the rounds used equals ${MAX_ROUNDS}, you must not ask again: summarise.
 4. Summarise (next "summarise"): title, now, should, who, done, plan. "plan" says in plain English what will change, from the team's point of view.
+4a. SOMETHING ONLY A PERSON CAN SUPPLY (Jamie, 23 Nov 2026). If the change needs something that doesn't exist yet, or that the design notes don't give, and that only a person can create or look up, list each one in "needs". The most common is a Rentman extra input field: the app can't create one, can't look its ID up while it's being built, and must never guess it. For that, "what" says plainly what to create (its name, whether it goes on Projects, Contacts or Equipment, and its type, e.g. "a Yes/No field called In house prep on Projects") and asks for its ID number; "where" says how: "In Rentman: Settings, Extra input fields, Add extra input field. The ID is the number in the first column." Others: a HubSpot property's internal name, a Slack channel, a Google Sheet link, an email address, a price or wording only Jamie or Sam can decide.
+   - "value" is what the thread has already given for it (e.g. "54"), else empty. Only fill it from what someone actually wrote in the thread; never make one up or take it from an example.
+   - Needs are shown to the requester separately from your numbered questions, so don't repeat them as questions.
+   - Keep a need in the list after it is answered, with its value, so the builder gets it.
+   - If the requester says they can't do it, leave the value empty: Jamie will be asked for it before anything is built.
 5. Sort it into a tier:
    - "small": a bug, wording, a column or filter, a button in the wrong place, a reminder time, on an app where small fixes can be built.
    - "bigger": anything new (a feature, screen or report); anything touching deal money, payments or invoices; customer emails; Rentman writes or more Rentman calls; HubSpot or Xero writes; logins and who can see what; a new scheduled job; deleting data; anything on an app marked "proposals only"; anything that contradicts a recorded decision; anything that needs information the design notes don't say the app already has (from Rentman, HubSpot, Xero or anywhere else). Never call it small on an assumption that the app already has the data: if you'd have to write that assumption, it is bigger. List every reason in bigger_reasons.
@@ -51,6 +56,9 @@ SAFETY
 - Never invent how an app works. If the notes don't say, ask or set recorded_decision_found false.`;
 
 /** The answer Claude must give. Strict, so the code can rely on every field. */
+export const NeedSchema = z.object({ what: z.string(), where: z.string(), value: z.string() });
+export type Need = z.infer<typeof NeedSchema>;
+
 export const AssessmentSchema = z.object({
   app: z.string(),
   kind: z.enum(["change", "question"]),
@@ -63,6 +71,7 @@ export const AssessmentSchema = z.object({
   size: z.enum(["S", "M", "L"]),
   next: z.enum(["ask", "summarise", "answer", "investigate"]),
   questions: z.array(z.object({ q: z.string(), suggested: z.string() })),
+  needs: z.array(NeedSchema),
   summary: z.object({ title: z.string(), now: z.string(), should: z.string(), who: z.string(), done: z.string(), plan: z.string() }),
   reply_note: z.string(),
 });
@@ -84,6 +93,11 @@ export const ASSESSMENT_JSON_SCHEMA = obj({
   size: { type: "string", enum: ["S", "M", "L"] },
   next: { type: "string", enum: ["ask", "summarise", "answer", "investigate"] },
   questions: { type: "array", items: obj({ q: str, suggested: str }), description: `At most ${MAX_QUESTIONS}. Empty unless next is "ask".` },
+  needs: {
+    type: "array",
+    items: obj({ what: str, where: str, value: str }),
+    description: "Things only a person can create or look up before this can be built, e.g. a Rentman extra input field and its ID. value: what the thread has given for it, else empty. Empty array when nothing is needed.",
+  },
   summary: obj({ title: str, now: str, should: str, who: str, done: str, plan: str }),
   reply_note: { type: "string", description: "Optional one line to the requester, else empty." },
 });
@@ -109,6 +123,7 @@ export function notesBlock(app: App | undefined, notes: { path: string; text: st
 export function turnPrompt(rounds: number, appKey: string, fixing = false): string {
   return [
     `Rounds of questions used so far: ${rounds} of ${MAX_ROUNDS}.`,
+    rounds >= MAX_ROUNDS ? "No more numbered questions, but still list in needs anything only a person can supply, with its value if the thread now gives it." : "",
     appKey ? `The app was earlier taken to be "${appKey}"; change it only if the thread clearly says otherwise.` : "",
     fixing
       ? "The requester asked a question, the app was looked into (your findings are in the thread), and they tapped the button to get it fixed or changed. Treat it now as a change request (kind \"change\") for what the findings say should change. Skip the questions if the findings make it clear; then summarise."
@@ -119,9 +134,17 @@ export function turnPrompt(rounds: number, appKey: string, fixing = false): stri
     .join("\n");
 }
 
+/** One extra round of asking, only for what a person must supply (Jamie, 23 Nov 2026). */
+export const NEEDS_ROUNDS = 1;
+
+/** Needs nobody has answered yet. */
+export function missingNeeds(needs: Need[] | undefined): Need[] {
+  return (needs ?? []).filter((n) => n.what.trim() && !n.value.trim());
+}
+
 /** Code-side guard rails on Claude's answer, so the agreed rules hold even if the model slips. */
 export function enforce(a: Assessment, rounds: number, app: App | undefined, fixing = false): Assessment {
-  const out: Assessment = { ...a, questions: a.questions.slice(0, MAX_QUESTIONS), bigger_reasons: [...a.bigger_reasons] };
+  const out: Assessment = { ...a, questions: a.questions.slice(0, MAX_QUESTIONS), bigger_reasons: [...a.bigger_reasons], needs: a.needs.filter((n) => n.what.trim()) };
   // Once the requester has tapped Fix it, it's a change: no more looking.
   if (fixing && out.next === "investigate") {
     out.kind = "change";
@@ -132,7 +155,26 @@ export function enforce(a: Assessment, rounds: number, app: App | undefined, fix
     out.next = "ask";
     out.questions = [{ q: "Which app is this about?", suggested: out.app && out.app !== "unknown" ? out.app : "Team Dashboard" }];
   }
-  if (out.next === "ask" && (rounds >= MAX_ROUNDS || out.questions.length === 0)) out.next = "summarise";
+  const missing = out.kind === "change" ? missingNeeds(out.needs) : [];
+  if (out.next === "ask" && (rounds >= MAX_ROUNDS || out.questions.length === 0) && !missing.length) out.next = "summarise";
+  // Something only a person can supply (a Rentman field's ID, say) is asked for explicitly before the summary,
+  // with one extra round for it if the questions used them all; still missing after that, it goes to Jamie,
+  // who is asked for it before anything is built (Jamie, 23 Nov 2026, after Louis's In house prep request failed at build).
+  if (missing.length && app && app.mode !== "not_offered" && (out.next === "ask" || out.next === "summarise")) {
+    if (rounds < MAX_ROUNDS + NEEDS_ROUNDS) {
+      out.next = "ask";
+      if (rounds >= MAX_ROUNDS) out.questions = [];
+    } else {
+      out.next = "summarise";
+      out.questions = [];
+    }
+  }
+  if (out.next === "summarise" && missing.length && out.tier === "small") {
+    out.tier = "bigger";
+  }
+  if (out.next === "summarise" && missing.length) {
+    out.bigger_reasons.push(`it needs something only a person can supply first: ${missing.map((n) => n.what).join("; ")}`);
+  }
   if (app?.mode === "not_offered") {
     out.next = "answer";
     out.questions = [];

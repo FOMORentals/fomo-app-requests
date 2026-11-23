@@ -25,3 +25,11 @@ test("a reply reopens questions, a summary, an answer or a closed request, but n
   assert.equal(reopensOnReply("building"), false);
   assert.equal(reopensOnReply("approval"), false);
 });
+
+test("what the team supplied (a Rentman field's ID) is kept on the request; older requests read as none", () => {
+  const c = { ...newCard("U1"), needs: [{ what: "In house prep field ID", where: "Rentman", value: "54" }] };
+  assert.deepEqual(readCard(cardMeta(c))?.needs, c.needs);
+  const old = cardMeta(newCard("U1"));
+  delete old.event_payload.needs;
+  assert.deepEqual(readCard(old)?.needs, []);
+});

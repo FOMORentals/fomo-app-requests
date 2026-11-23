@@ -22,6 +22,7 @@ const q: Assessment = {
   next: "investigate",
   questions: [],
   summary: { title: "", now: "", should: "", who: "", done: "", plan: "" },
+  needs: [],
   reply_note: "",
 };
 
