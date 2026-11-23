@@ -66,6 +66,7 @@ export type SlackMessage = {
   latest_reply?: string;
   files?: SlackFile[];
   metadata?: Meta;
+  blocks?: unknown[];
 };
 
 /** Messages in a channel (newest first), with the app's metadata, back to `oldestMs`. */

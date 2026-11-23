@@ -90,8 +90,13 @@ change it here the same day (rule 7).
 - Event driven: it is redrawn whenever a request moves on. No new scheduled job; the existing 15-minute tick also
   redraws it from what it already reads, to catch up after a failed redraw. It never overwrites a channel canvas the
   bot didn't write.
-- The canvas is fixed by `TRACKER_CANVAS_ID` (F0CL1083WJZ); the bot never creates one (23 Nov 2026: Slack didn't
+- The canvas is fixed by `TRACKER_CANVAS_ID` (in Vercel); the bot never creates one (23 Nov 2026: Slack didn't
   report the channel's canvas back, so the first version made a second canvas on its next redraw).
+
+- **Done elsewhere** (23 Nov 2026): when a request waiting on Jamie (passed to him, a proposal, or a failed build) was
+  finished outside the bot, for example built directly in another thread, Jamie taps "Done elsewhere" on its status
+  card and can add where (a PR link). It becomes Live (or Answered, for a question), nothing is built, a failed build's
+  issue is closed, the requester is told it's done, and the tracker updates. Only Jamie can use it.
 
 ## "Why is the app doing this?" questions (Jamie, 20 Nov 2026)
 - The team can ask why an app behaves the way it does (something not refreshing as expected, a button not doing
