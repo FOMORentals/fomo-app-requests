@@ -90,6 +90,8 @@ change it here the same day (rule 7).
 - Event driven: it is redrawn whenever a request moves on. No new scheduled job; the existing 15-minute tick also
   redraws it from what it already reads, to catch up after a failed redraw. It never overwrites a channel canvas the
   bot didn't write.
+- The canvas is fixed by `TRACKER_CANVAS_ID` (F0CL1083WJZ); the bot never creates one (23 Nov 2026: Slack didn't
+  report the channel's canvas back, so the first version made a second canvas on its next redraw).
 
 ## "Why is the app doing this?" questions (Jamie, 20 Nov 2026)
 - The team can ask why an app behaves the way it does (something not refreshing as expected, a button not doing

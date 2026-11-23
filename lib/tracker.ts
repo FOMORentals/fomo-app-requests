@@ -158,7 +158,6 @@ function links(r: Row): string {
 export function trackerMarkdown(rows: Row[], now: number): string {
   const shown = rows.filter((r) => groupOf(r.card) !== "done" || now - r.lastAt <= DONE_DAYS * DAY);
   const out: string[] = [
-    "# :clipboard: Request tracker",
     `${MARKER} whenever a request moves on. Last change ${shortDate(now)}, ${londonTime(now)} London time. Requests from the last 30 days; tap Thread to open one.`,
   ];
   for (const g of GROUPS) {
@@ -183,7 +182,7 @@ export async function refreshTrackerIfChanged(now = Date.now()): Promise<void> {
 /**
  * Redraws the tracker from every request. `all` lets the tick pass the requests it has already read.
  * Slack calls: the requests' threads (skipped when `all` is given), a first-name lookup per person,
- * conversations.info, and one canvas edit (plus a one-off create the first time).
+ * a marker check and one canvas edit.
  */
 export async function refreshTracker(all?: Loaded[], now = Date.now()): Promise<boolean> {
   cardsChanged(true); // a card saved while this runs marks it again, and that request redraws afterwards
@@ -206,7 +205,7 @@ export async function refreshTracker(all?: Loaded[], now = Date.now()): Promise<
         threadUrl: await messageLink(ch, l.thread),
       });
     }
-    await writeCanvas(ch, trackerMarkdown(rows, now));
+    await writeCanvas(trackerMarkdown(rows, now));
     return true;
   } catch (err) {
     report(err, "tracker.refresh");
@@ -214,30 +213,21 @@ export async function refreshTracker(all?: Loaded[], now = Date.now()): Promise<
   }
 }
 
-export const CANVAS_TITLE = "Request tracker";
-let titled = false;
-
-/** Names the canvas (its tab label), once per server start: Slack calls a new channel canvas "Untitled canvas". */
-async function nameCanvas(id: string): Promise<void> {
-  if (titled) return;
-  await slack("canvases.edit", { canvas_id: id, changes: [{ operation: "rename", title_content: { type: "markdown", markdown: CANVAS_TITLE } }] });
-  titled = true;
+/**
+ * The canvas is fixed by TRACKER_CANVAS_ID (Vercel, Production; not a secret). The bot never creates one: on 23 Nov 2026
+ * Slack didn't report the channel's existing canvas back, so looking it up made a new canvas on every redraw.
+ * To start again: create a canvas in #app-requests that the bot can edit, put its ID (F...) in TRACKER_CANVAS_ID, redeploy.
+ */
+function canvasId(): string {
+  const id = process.env.TRACKER_CANVAS_ID?.trim();
+  if (!id) throw new Error("TRACKER_CANVAS_ID is not set, so the Request tracker can't be redrawn");
+  return id;
 }
 
-/** Writes the channel canvas, creating it the first time. Refuses to overwrite a canvas someone else wrote. */
-async function writeCanvas(ch: string, markdown: string): Promise<void> {
-  const document_content = { type: "markdown", markdown };
-  const info = await slack<{ channel: { properties?: { canvas?: { file_id?: string; is_empty?: boolean } } } }>("conversations.info", { channel: ch });
-  const existing = info.channel.properties?.canvas;
-  if (!existing?.file_id) {
-    const made = await slack<{ canvas_id: string }>("conversations.canvases.create", { channel_id: ch, document_content });
-    await nameCanvas(made.canvas_id);
-    return;
-  }
-  if (!existing.is_empty) {
-    const found = await slack<{ sections: unknown[] }>("canvases.sections.lookup", { canvas_id: existing.file_id, criteria: { contains_text: MARKER } });
-    if (!found.sections?.length) throw new Error(`#app-requests already has a canvas (${existing.file_id}) that the bot didn't write; not overwriting it`);
-  }
-  await slack("canvases.edit", { canvas_id: existing.file_id, changes: [{ operation: "replace", document_content }] });
-  await nameCanvas(existing.file_id);
+/** Replaces the canvas's content. Refuses to overwrite a canvas the bot didn't write (no marker line). */
+async function writeCanvas(markdown: string): Promise<void> {
+  const id = canvasId();
+  const found = await slack<{ sections: unknown[] }>("canvases.sections.lookup", { canvas_id: id, criteria: { contains_text: MARKER } });
+  if (!found.sections?.length) throw new Error(`Canvas ${id} doesn't carry the tracker's marker line; not overwriting it`);
+  await slack("canvases.edit", { canvas_id: id, changes: [{ operation: "replace", document_content: { type: "markdown", markdown } }] });
 }
