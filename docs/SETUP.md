@@ -72,3 +72,16 @@ Nothing changes for #app-requests until these are done; `/list-kit` simply isn't
    narrowed.
 
 Try it: `/list-kit` with nothing after it shows kit added in the last 14 days.
+
+## Sam's grill, `/grill` (23 Nov 2026)
+
+Nothing changes for anyone until these are done; `/grill` simply isn't there yet.
+
+1. **Slack.** api.slack.com/apps → FOMO App requests → App Manifest: add the `/grill` entry under `slash_commands`
+   and the `files:write` scope from `docs/slack-app-manifest.yml`, save, and reinstall the app when Slack asks.
+2. **Claude API key.** It uses the existing `ANTHROPIC_API_KEY`. A grill reads app code with Opus, so it costs more than a
+   request; raise the key's monthly spend limit in console.anthropic.com if it's still at £10.
+3. **GitHub token.** Nothing to add: it already reads every app's repo and writes to fomo-app-requests (specs are saved in
+   `specs/`).
+
+Try it: Sam types `/grill` and an idea anywhere in Slack; the grill opens in #app-requests.

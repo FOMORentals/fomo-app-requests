@@ -17,6 +17,8 @@ export const PEOPLE: Person[] = [
 
 export const OWNER_EMAIL = "jamie@fomorentals.co.uk";
 export const APPROVER_EMAIL = "sam@fomorentals.co.uk";
+/** Who can start a `/grill` (Jamie, 23 Nov 2026: only Sam). */
+export const GRILLERS = ["sam@fomorentals.co.uk"];
 
 export function personByEmail(email: string | null | undefined): Person | null {
   const e = (email ?? "").trim().toLowerCase();

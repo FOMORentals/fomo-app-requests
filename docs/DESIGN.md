@@ -157,3 +157,22 @@ Spec: project file `website-listings/website-listing-tool-spec.md`.
 - This is the first part of this app to call Rentman and Google Cloud (Firestore fomo-bookings-board-v2 for drafts,
   the shared circuit and the writer lease; the website-sync Cloud Run job for Go live now). Drafts live in Firestore,
   not Slack metadata, because long descriptions don't fit there.
+
+## Sam's grill, `/grill` (Jamie, 23 Nov 2026)
+- For ideas more ambitious than a request. **Only Sam** can start one (`GRILLERS` in `lib/config.ts`); anyone else is told
+  to post a normal request. `/grill <idea>` works from any channel; the grill happens in a thread in #app-requests.
+- **Matt Pocock's grill-me skill, word for word** (Jamie: "use the exact skill I'm referencing"). grill-me's SKILL.md only
+  says to use his "grilling" skill, so the bot's instructions are `grill/skills/grilling/SKILL.md`, copied unchanged from
+  mattpocock-skills 1.2.3 (MIT). Never paraphrase it; to update it, copy the new file over. **The skill decides when it's
+  done**, not Sam: when its frontier is empty, Sam gets the shared understanding with "Yes, write the spec" / "Not yet"
+  (the skill's "confirm you have reached a shared understanding"). He can also confirm in words.
+- Around the skill it gets: where it is running (it looks facts up with read-only GitHub tools where the skill says to use
+  a sub-agent, and starts each round with "What I checked"), every app's `docs/DESIGN.md` and `CLAUDE.md` (fresh),
+  `grill/context/where-we-are.md` and the weekly sales review skill when they are in `grill/context/`, and Jamie's
+  **framing rule**: start from the outcome the person wants, not the solution they asked for, and weigh changing what
+  already exists before building anything new. Test case: Sam's "downloadable upcoming deal report" for the morning
+  meeting with Louis and Rosie.
+- **The spec goes to Jamie only**: a Slack DM with the .md attached, and a copy in this repo's `specs/`. It never goes
+  into the build queue; Jamie reviews it with Claude and it gets built from there.
+- Others can chip in on the thread (Claude reads it), but only Sam's replies move the grill on. No reminders, no new
+  scheduled job, not on the Request tracker (it isn't a request). Opus, high effort, on the bot's existing API key.

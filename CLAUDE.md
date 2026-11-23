@@ -20,6 +20,8 @@ Setup: `docs/SETUP.md`.
   `app-question.yml` (looks into a question, read only, reports to `/api/question/callback`) and
   `design-notes.yml` (the "Design notes" check).
 
+- `lib/grill/` Sam's grill (`/grill`, Jamie 23 Nov 2026): Matt Pocock's grilling skill word for word
+  (`grill/skills/`), multi-turn in an #app-requests thread, spec DM'd to Jamie and saved in `specs/`. Never builds.
 - `lib/listings/` website listings (`/list-kit`, Jamie 23 Nov 2026): the AI drafts a new purchase's website fields,
   the team edits them, Jamie, Sam or Will publish. Its Rentman call budget is at the top of `lib/listings/rentman.ts`.
 

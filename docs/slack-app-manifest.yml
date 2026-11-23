@@ -18,6 +18,11 @@ features:
       description: Put new kit on the website (or edit a listing)
       usage_hint: "[Rentman code or part of the name]"
       should_escape: false
+    - command: /grill
+      url: APP_URL/api/slack/commands
+      description: Sam only. Get grilled on an idea; the spec goes to Jamie
+      usage_hint: "[your idea]"
+      should_escape: false
 oauth_config:
   scopes:
     bot:
@@ -28,6 +33,7 @@ oauth_config:
       - users:read.email
       - im:write
       - files:read
+      - files:write # Sam's grill sends Jamie the spec as a .md file (23 Nov 2026)
       - commands
       - channels:read # the Request tracker finds the channel's canvas (23 Nov 2026)
       - canvases:read
