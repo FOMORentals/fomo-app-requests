@@ -1,5 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { handleEvent } from "@/lib/handlers";
+import { cutoutPhotos, startCutouts } from "@/lib/listings/cutout";
 import { report } from "@/lib/report";
 import { verifySlackSignature } from "@/lib/slack";
 import { refreshTrackerIfChanged } from "@/lib/tracker";
@@ -15,7 +16,10 @@ export async function POST(req: Request) {
   if (body.type === "url_verification") return NextResponse.json({ challenge: body.challenge });
   // Slack retries when it thinks we were slow. We always answer at once, so a retry is a duplicate.
   if (req.headers.get("x-slack-retry-num")) return new NextResponse(null, { status: 200 });
-  if (body.type === "event_callback") {
+  if (body.type === "event_callback" && cutoutPhotos(body.event).length) {
+    // A photo dropped in a website listing card's thread: cut it out (lib/listings/cutout.ts).
+    after(() => startCutouts(body.event).catch((err) => report(err, "listings.cutout", { ts: body.event?.ts })));
+  } else if (body.type === "event_callback") {
     // Then the Request tracker tab, if the request moved on (lib/tracker.ts).
     after(() =>
       handleEvent(body.event)

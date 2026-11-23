@@ -73,6 +73,10 @@ Nothing changes for #app-requests until these are done; `/list-kit` simply isn't
 
 Try it: `/list-kit` with nothing after it shows kit added in the last 14 days.
 
+Cut-out photos (23 Nov 2026 evening): the app needs Slack's `files:write` permission (already in the manifest for
+Sam's grill: reinstall if it isn't granted yet). The workflow uses this repo's `APP_REQUESTS_CALLBACK_SECRET` (set
+20 Nov) and the app's `GITHUB_TOKEN` (Contents write on this repo starts it). Try it: drop a photo in a card's thread.
+
 ## Sam's grill, `/grill` (23 Nov 2026)
 
 Nothing changes for anyone until these are done; `/grill` simply isn't there yet.

@@ -1,0 +1,71 @@
+# Listing photo cut-out (Jamie, 23 Nov 2026): a photo dropped in a website listing card's thread in #website-listings
+# comes back cut out (transparent background, trimmed, soft shadow: the website's recipe), ready to upload to Rentman.
+# Started only by the App requests app (repository_dispatch "listing-cutout", lib/listings/cutout.ts). Every call back
+# to the app is signed with APP_REQUESTS_CALLBACK_SECRET; the Slack token never leaves the app. No Rentman calls.
+name: Listing photo cut-out
+
+on:
+  repository_dispatch:
+    types: [listing-cutout]
+
+permissions:
+  contents: read
+
+# One at a time: each run loads its own copy of the model.
+concurrency:
+  group: listing-cutout
+  cancel-in-progress: false
+
+jobs:
+  cutout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_URL: https://fomo-app-requests.vercel.app
+      SECRET: ${{ secrets.APP_REQUESTS_CALLBACK_SECRET }}
+      PAYLOAD: ${{ toJson(github.event.client_payload) }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/cutout-requirements.txt
+
+      - name: Cache the background-removal model
+        uses: actions/cache@v4
+        with:
+          path: ~/.rembg
+          key: rembg-isnet-general-use-v1
+
+      - name: Install
+        run: pip install -q -r scripts/cutout-requirements.txt
+
+      - name: Fetch the photo, cut it out, send it back
+        id: cut
+        run: |
+          set -euo pipefail
+          call() { # $1 = JSON body, rest = curl options; signs the body like the build and question reports
+            local sig="sha256=$(printf '%s' "$1" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.* //')"
+            curl -sS --fail-with-body -X POST "$APP_URL/api/listings/cutout" -H "Content-Type: application/json" -H "x-signature: $sig" --data "$1" "${@:2}"
+          }
+          file=$(jq -r .file <<<"$PAYLOAD")
+          call "$(jq -cn --arg f "$file" '{action:"source",file:$f}')" -o "$RUNNER_TEMP/in"
+          name=$(jq -r '.name // "photo"' <<<"$PAYLOAD")
+          python scripts/cutout.py "$RUNNER_TEMP/in" "$RUNNER_TEMP/out.png" 2> "$RUNNER_TEMP/why.txt" || { tail -c 300 "$RUNNER_TEMP/why.txt"; exit 1; }
+          len=$(stat -c %s "$RUNNER_TEMP/out.png")
+          up=$(call "$(jq -cn --arg n "$name" --argjson l "$len" '{action:"upload",name:$n,length:$l}')")
+          curl -sS --fail-with-body -F "filename=@$RUNNER_TEMP/out.png" "$(jq -r .url <<<"$up")" > /dev/null
+          call "$(jq -cn --arg u "$(jq -r .upload <<<"$up")" --argjson p "$PAYLOAD" --arg n "$name" '{action:"done",upload:$u,channel:$p.channel,thread:$p.thread,name:$n}')" > /dev/null
+
+      - name: Say it didn't work
+        if: failure()
+        run: |
+          why=$(tail -c 200 "$RUNNER_TEMP/why.txt" 2>/dev/null | tr '\n' ' ' || true)
+          body=$(jq -cn --argjson p "$PAYLOAD" --arg r "${why:-the cut-out step stopped}" --arg u "$RUN_URL" '{action:"failed",channel:$p.channel,thread:$p.thread,name:($p.name // "the photo"),reason:$r,runUrl:$u}')
+          sig="sha256=$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.* //')"
+          curl -sS --fail-with-body -X POST "$APP_URL/api/listings/cutout" -H "Content-Type: application/json" -H "x-signature: $sig" --data "$body"

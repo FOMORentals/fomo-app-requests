@@ -84,6 +84,7 @@ export function cardBlocks(l: Listing, config: Config, issues: Problem[], goLive
   }
   if (l.aiNote) out.push(context(`AI note: ${esc(l.aiNote)}`));
   if (l.note) out.push(context(esc(l.note)));
+  if (["draft", "published", "live"].includes(l.stage)) out.push(context("📷 Need a cut-out photo for Rentman? Drop the photo in this thread and the cut-out comes back in about 2 minutes."));
 
   const actions: Record<string, unknown>[] = [];
   if (l.stage === "draft") {
