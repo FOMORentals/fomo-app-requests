@@ -22,6 +22,7 @@ const base: Assessment = {
   ],
   summary: { title: "t", now: "", should: "", who: "", done: "", plan: "" },
   needs: [],
+  reframe: { after: "", exists: "", scope: "", why: "", keep_small: "" },
   reply_note: "",
 };
 

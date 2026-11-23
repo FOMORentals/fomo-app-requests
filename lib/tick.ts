@@ -37,7 +37,7 @@ export function needsDoneButton(l: Loaded): boolean {
 /** What the cron should do with one request. Pure, tested. */
 export function due(l: Loaded, now: number): "nudge" | "close" | "remind" | "start" | "timeout" | "look_timeout" | "check_deploy" | null {
   const c = l.card;
-  if ((c.stage === "grilling" || c.stage === "confirm") && c.askedAt) {
+  if ((c.stage === "reframe" || c.stage === "grilling" || c.stage === "confirm") && c.askedAt) {
     if (now >= addWorkingDays(c.askedAt, 3)) return "close";
     if (!c.nudged && now >= addWorkingDays(c.askedAt, 1)) return "nudge";
   }

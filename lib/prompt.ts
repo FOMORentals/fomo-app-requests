@@ -42,6 +42,15 @@ WHAT YOU DO, IN ORDER
    - Give a size for bigger work: S (an afternoon), M (a day or two), L (more).
    - Apps "not offered to the team": no questions, next "answer", how_to says it's one for Jamie and you've passed it on.
 
+FIRST, SAY HOW YOU READ IT AND HOW BIG IT IS (Jamie, 23 Nov 2026)
+The team aren't practised at asking for changes: a request often names a solution ("an export", "a button") when what they need is an outcome, and a big idea can arrive looking small. So for a change request, your first answer is next "reframe", before any numbered questions (the turn prompt says when the reading still needs confirming). Not for "why is the app doing this?" questions, not when the app already does it, not for apps not offered.
+- reframe.after: what they're really trying to achieve, who it's for and how often, in their terms. Start from the outcome, not the solution they asked for (e.g. "knowing which quotes to chase today, so none go cold", not "an export of quotes").
+- reframe.exists: what the apps already do that's relevant, from the design notes, and what's missing. Prefer changing what exists to building something new; say so when an existing screen nearly does it.
+- reframe.scope: "quick_fix" (a typo, wording, a broken button, one obvious fix), "change" (a column, a filter, a reminder time, a tweak to an existing screen or message), or "new_idea" (a new screen, report, routine or workflow; data the app doesn't have from another system; customer emails; anything that changes how the team works day to day). When unsure between change and new_idea, pick new_idea: Sam decides whether it gets the full grill.
+- reframe.why: one line on why that size. Leave questions empty.
+If the requester replies correcting you, reframe again with what they said.
+Once the reading is confirmed, carry on as below. A quick fix gets at most one question, or none. If the answers show a change is really a new idea (it now needs customer emails, a new screen, another system's data, or a new routine), set next "step_up": reframe.why says what made it bigger, reframe.keep_small says what to drop to keep it a change.
+
 "WHY IS THE APP DOING THIS?" QUESTIONS (Jamie, 20 Nov 2026)
 The team can also ask why an app is behaving a certain way: something isn't refreshing as often as expected, a button doesn't do what they expected, a number looks wrong, a screen looks stuck. They often start with "?" or "why". What they want is to understand the right process, or to find out that something needs fixing and get it fixed.
 - Set kind "question".
@@ -69,7 +78,8 @@ export const AssessmentSchema = z.object({
   tier: z.enum(["small", "bigger"]),
   bigger_reasons: z.array(z.string()),
   size: z.enum(["S", "M", "L"]),
-  next: z.enum(["ask", "summarise", "answer", "investigate"]),
+  next: z.enum(["reframe", "ask", "step_up", "summarise", "answer", "investigate"]),
+  reframe: z.object({ after: z.string(), exists: z.string(), scope: z.enum(["", "quick_fix", "change", "new_idea"]), why: z.string(), keep_small: z.string() }),
   questions: z.array(z.object({ q: z.string(), suggested: z.string() })),
   needs: z.array(NeedSchema),
   summary: z.object({ title: z.string(), now: z.string(), should: z.string(), who: z.string(), done: z.string(), plan: z.string() }),
@@ -91,7 +101,17 @@ export const ASSESSMENT_JSON_SCHEMA = obj({
   tier: { type: "string", enum: ["small", "bigger"] },
   bigger_reasons: { type: "array", items: str },
   size: { type: "string", enum: ["S", "M", "L"] },
-  next: { type: "string", enum: ["ask", "summarise", "answer", "investigate"] },
+  next: { type: "string", enum: ["reframe", "ask", "step_up", "summarise", "answer", "investigate"] },
+  reframe: {
+    ...obj({
+      after: { type: "string", description: "What the requester is really trying to achieve: the outcome, not the thing they named." },
+      exists: { type: "string", description: "What the apps already do that's relevant, and what's missing." },
+      scope: { type: "string", enum: ["", "quick_fix", "change", "new_idea"] },
+      why: { type: "string", description: "One line: why that size (or, on step_up, what made it bigger)." },
+      keep_small: { type: "string", description: "On step_up only: in a few words, what to drop to keep it a change, e.g. 'no automatic emails'. Else empty." },
+    }),
+    description: 'Filled when next is "reframe" or "step_up"; else empty strings.',
+  },
   questions: { type: "array", items: obj({ q: str, suggested: str }), description: `At most ${MAX_QUESTIONS}. Empty unless next is "ask".` },
   needs: {
     type: "array",
@@ -120,8 +140,18 @@ export function notesBlock(app: App | undefined, notes: { path: string; text: st
   return `DESIGN NOTES FOR ${app.name} (repo ${app.repo}), read from GitHub just now:\n\n${parts.join("\n\n")}`;
 }
 
-export function turnPrompt(rounds: number, appKey: string, fixing = false): string {
+/** Where a request stands on reframing and size (Jamie, 23 Nov 2026). */
+export type Depth = { reframed: boolean; scope: "" | "quick_fix" | "change" | "new_idea"; gate: "" | "grill" | "small" | "parked" };
+/** Requests from before reframing existed, and tests of the older rules, count as already reframed. */
+export const REFRAMED: Depth = { reframed: true, scope: "", gate: "" };
+
+export function turnPrompt(rounds: number, appKey: string, fixing = false, depth: Depth = REFRAMED): string {
   return [
+    needsReframe(rounds, fixing, depth)
+      ? 'The reading of this request is not confirmed yet: if it is a change request, answer with next "reframe" (or reframe again if the requester corrected you).'
+      : depth.scope
+        ? `The requester confirmed your reading. Size: ${depth.scope.replace("_", " ")}.${depth.gate === "small" ? " Sam (or the requester) chose to keep it small: don't step up again; keep it to a change." : ""}${depth.scope === "quick_fix" ? " At most one question, or none." : ""}`
+        : "",
     `Rounds of questions used so far: ${rounds} of ${MAX_ROUNDS}.`,
     rounds >= MAX_ROUNDS ? "No more numbered questions, but still list in needs anything only a person can supply, with its value if the thread now gives it." : "",
     appKey ? `The app was earlier taken to be "${appKey}"; change it only if the thread clearly says otherwise.` : "",
@@ -142,9 +172,31 @@ export function missingNeeds(needs: Need[] | undefined): Need[] {
   return (needs ?? []).filter((n) => n.what.trim() && !n.value.trim());
 }
 
+/** A change request is reframed before its first questions; ones already under way are left alone. Pure. */
+export function needsReframe(rounds: number, fixing: boolean, depth: Depth): boolean {
+  return !depth.reframed && !fixing && rounds === 0;
+}
+
 /** Code-side guard rails on Claude's answer, so the agreed rules hold even if the model slips. */
-export function enforce(a: Assessment, rounds: number, app: App | undefined, fixing = false): Assessment {
+export function enforce(a: Assessment, rounds: number, app: App | undefined, fixing = false, depth: Depth = REFRAMED): Assessment {
   const out: Assessment = { ...a, questions: a.questions.slice(0, MAX_QUESTIONS), bigger_reasons: [...a.bigger_reasons], needs: a.needs.filter((n) => n.what.trim()) };
+  // Reframe first (Jamie, 23 Nov 2026): a change request's first answer says how it was read and its size.
+  const reframing = needsReframe(rounds, fixing, depth);
+  if (reframing && out.kind === "change" && (out.next === "ask" || out.next === "summarise" || out.next === "step_up") && app?.mode !== "not_offered") out.next = "reframe";
+  if (out.next === "reframe" && (!reframing || out.kind !== "change")) out.next = out.questions.length ? "ask" : "summarise";
+  if (out.next === "reframe") {
+    if (!out.reframe.scope) out.reframe = { ...out.reframe, scope: "change" };
+    out.questions = [];
+    return out;
+  }
+  // Step up only from a confirmed change that nobody has already chosen to keep small.
+  if (out.next === "step_up" && (out.kind !== "change" || depth.scope === "new_idea" || depth.gate === "small" || depth.gate === "grill" || !depth.reframed))
+    out.next = out.questions.length ? "ask" : "summarise";
+  if (out.next === "step_up") {
+    out.questions = [];
+    return out;
+  }
+  if (depth.scope === "quick_fix") out.questions = out.questions.slice(0, 1);
   // Once the requester has tapped Fix it, it's a change: no more looking.
   if (fixing && out.next === "investigate") {
     out.kind = "change";
