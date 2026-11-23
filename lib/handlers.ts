@@ -26,6 +26,7 @@ import {
   dm,
   link,
   load,
+  markChanged,
   nameOf,
   postInThread,
   save,
@@ -61,6 +62,7 @@ async function newRequest(channel: string, ts: string, user: string): Promise<vo
     return;
   }
   const card = newCard(user);
+  markChanged();
   const res = await slack<{ ts: string }>("chat.postMessage", {
     channel,
     thread_ts: ts,

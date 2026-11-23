@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { handleBuildReport, type BuildReport } from "@/lib/handlers";
 import { report } from "@/lib/report";
+import { refreshTrackerIfChanged } from "@/lib/tracker";
 
 // The "App request build" workflow in each app repo reports here when it has built (or failed to build) a change.
 export const maxDuration = 60;
@@ -24,6 +25,8 @@ export async function POST(req: Request) {
   } catch {
     return new NextResponse("not JSON", { status: 400 });
   }
+  // The Request tracker tab, once the report has moved the request on (lib/tracker.ts).
+  after(() => refreshTrackerIfChanged());
   try {
     await handleBuildReport(r);
     return NextResponse.json({ ok: true });
