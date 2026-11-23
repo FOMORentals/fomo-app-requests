@@ -5,12 +5,14 @@
  * 3. Queued builds start when a slot frees up.
  * 4. Builds that never reported back are marked failed (rule 1). So are looks into the code (questions) after 45 minutes.
  * 5. Merged changes: checks the live deploy actually happened before saying "Live" (rule 5).
- * 6. Redraws the Request tracker tab from the requests it has just read (no extra thread reads). This catches up
+ * 6. Gives cards drawn before the "Done elsewhere" button existed the button (once).
+ * 7. Redraws the Request tracker tab from the requests it has just read (no extra thread reads). This catches up
  *    after a redraw that failed when a request moved on, and moves finished requests off after 14 days.
  * Runs at most 60 s (maxDuration) against a 15-minute interval, so two runs can't overlap and no lock is needed.
  * It stops itself at 50 s and logs INCOMPLETE (rule 2). One failure doesn't stop the rest; failures are counted (rule 1).
  */
 import { allRequests, appOf, buildsRunning, dm, link, postInThread, save, startBuild, type Loaded } from "./actions";
+import { DONE_ELSEWHERE_FROM } from "./blocks";
 import { APPROVER_EMAIL, OWNER_EMAIL } from "./config";
 import { productionDeploy } from "./github";
 import { refreshTracker } from "./tracker";
@@ -24,6 +26,13 @@ const DEPLOY_WARN = 45 * 60_000;
 const BUDGET = 50_000;
 
 export type TickResult = { nudged: number; closed: number; reminded: number; started: number; live: number; failures: number; incomplete: boolean };
+
+/** A card waiting on Jamie that was drawn without the "Done elsewhere" button. Pure, tested. */
+export function needsDoneButton(l: Loaded): boolean {
+  if (!DONE_ELSEWHERE_FROM.includes(l.card.stage)) return false;
+  const card = l.messages.find((m) => m.ts === l.cardTs);
+  return !!card && !JSON.stringify(card.blocks ?? []).includes("done_elsewhere");
+}
 
 /** What the cron should do with one request. Pure, tested. */
 export function due(l: Loaded, now: number): "nudge" | "close" | "remind" | "start" | "timeout" | "look_timeout" | "check_deploy" | null {
@@ -54,6 +63,8 @@ export async function runTick(now = Date.now()): Promise<TickResult> {
     }
     try {
       const c = l.card;
+      // Cards drawn before the "Done elsewhere" button existed get it once (23 Nov 2026). Idempotent.
+      if (needsDoneButton(l)) await save(l);
       const what = due(l, now);
       if (!what) continue;
       if (what === "nudge") {

@@ -52,7 +52,7 @@ export async function save(l: Loaded): Promise<void> {
     channel: l.channel,
     ts: l.cardTs,
     text: "Request status",
-    blocks: cardBlocks(l.card, app),
+    blocks: cardBlocks(l.card, app, { channel: l.channel, thread: l.thread }),
     metadata: cardMeta(l.card),
   });
 }

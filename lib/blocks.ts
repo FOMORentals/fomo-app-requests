@@ -2,7 +2,7 @@
 import type { App } from "./config";
 import { MAX_ROUNDS } from "./config";
 import { missingNeeds, type Assessment, type Need } from "./prompt";
-import type { Card, Stage, Summary } from "./records";
+import { encodeRef, type ApprovalRef, type Card, type Stage, type Summary } from "./records";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Block = Record<string, any>;
@@ -40,7 +40,10 @@ export function statusLine(stage: Stage, waitingOn = ""): string {
   return `*Status:* ${steps.join(" → ")}`;
 }
 
-export function cardBlocks(c: Card, app: App | undefined): Block[] {
+/** Stages where Jamie can mark a request done because the work was finished outside the bot (23 Nov 2026). */
+export const DONE_ELSEWHERE_FROM: Stage[] = ["handed", "proposal", "failed"];
+
+export function cardBlocks(c: Card, app: App | undefined, ref?: ApprovalRef): Block[] {
   const waitingOn = c.stage === "approval" ? (c.approver === "jamie" ? "Jamie" : "Sam") : c.stage === "proposal" ? "Jamie" : "";
   const bits = [app ? app.name : "", c.tier === "small" ? "Small fix" : c.tier === "bigger" ? "Bigger: a proposal for Jamie" : ""].filter(Boolean);
   const blocks: Block[] = [{ type: "section", text: { type: "mrkdwn", text: statusLine(c.stage, waitingOn) } }];
@@ -50,6 +53,11 @@ export function cardBlocks(c: Card, app: App | undefined): Block[] {
   if (c.stage === "failed" && c.note) ctx.push(c.note);
   if (c.stage === "declined" && c.note) ctx.push(`Why: ${c.note}`);
   if (ctx.length) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: ctx.join(" · ") }] });
+  if (ref && DONE_ELSEWHERE_FROM.includes(c.stage))
+    blocks.push({
+      type: "actions",
+      elements: [{ type: "button", action_id: "done_elsewhere", text: { type: "plain_text", text: "Done elsewhere (Jamie)" }, value: encodeRef(ref) }],
+    });
   return blocks;
 }
 

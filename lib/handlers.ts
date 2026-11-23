@@ -1,5 +1,6 @@
 /** Slack events (new requests, replies), buttons and forms, and the builder's report back. */
 import {
+  DONE_ELSEWHERE_FROM,
   answerBlocks,
   cardBlocks,
   approvalBlocks,
@@ -284,6 +285,12 @@ export async function handleInteraction(p: any): Promise<object | null> {
         await postInThread(l.channel, l.thread, "Turning this into a request, using what I found.");
         return { after: () => turn(l) };
       }
+      case "done_elsewhere":
+        // The work was finished outside the bot (another thread built it): Jamie marks it done, nothing is built (23 Nov 2026).
+        if (!u.isOwner) { await deny("Only Jamie can mark this as done elsewhere."); return null; }
+        if (!DONE_ELSEWHERE_FROM.includes(l.card.stage)) return null;
+        await modal("done_elsewhere", "Done elsewhere", "Where was it done? A pull request link or a few words. The person who asked will see this.", "Mark done", true);
+        return null;
       case "sam_comment":
         if (!u.isApprover && !u.isOwner) return null;
         await modal("sam_comment", "Comment for Jamie", "Your comment", "Send");
@@ -316,7 +323,7 @@ export async function handleInteraction(p: any): Promise<object | null> {
     const ref = decodeRef(p.view?.private_metadata);
     if (!ref) return null;
     const text: string = p.view.state.values?.text?.text?.value?.trim() ?? "";
-    if (!text && p.view.callback_id !== "retry") return { response_action: "errors", errors: { text: "Please write a few words." } };
+    if (!text && p.view.callback_id !== "retry" && p.view.callback_id !== "done_elsewhere") return { response_action: "errors", errors: { text: "Please write a few words." } };
     // Slack wants an answer within 3 seconds; the work runs after (see the route).
     return { after: () => submitted(p.view.callback_id, ref, text, p.user.id) };
   }
@@ -432,7 +439,21 @@ async function submitted(callbackId: string, ref: { channel: string; thread: str
   const name = await nameOf(userId);
   const title = l.card.summary?.title ?? "Request";
   const app = appOf(l);
-  if (callbackId === "retry" && l.card.stage === "failed") {
+  if (callbackId === "done_elsewhere" && DONE_ELSEWHERE_FROM.includes(l.card.stage)) {
+    if ((await userEmail(userId)) !== OWNER_EMAIL) return;
+    const wasQuestion = !l.card.summary && !l.card.tier;
+    if (l.card.stage === "failed" && l.card.issue) await closeIssue(app.repo, l.card.issue, "completed").catch((e) => report(e, "done_elsewhere.close_issue"));
+    l.card.stage = wasQuestion ? "answered" : "live";
+    l.card.note = text;
+    const pr = text.match(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/);
+    if (pr) l.card.prUrl = pr[0];
+    if (!wasQuestion) l.card.mergedAt = Date.now();
+    await save(l);
+    const outcome = text ? `Done elsewhere: ${text}` : "Done elsewhere.";
+    await settle(l.card.approvalChannel, l.card.approvalTs, title, outcome);
+    await settle(l.card.copyChannel, l.card.copyTs, title, outcome);
+    await postInThread(l.channel, l.thread, `<@${l.card.requester}> this is done ✅ ${name} sorted it outside this thread${text ? `: ${text}` : "."}`);
+  } else if (callbackId === "retry" && l.card.stage === "failed") {
     await rebuild(app.repo, l.card.issue, text ? `Try again, asked by ${name}, who adds:\n\n${text}` : `Try again, asked by ${name}.`);
     l.card.stage = "building";
     l.card.startedAt = Date.now();
