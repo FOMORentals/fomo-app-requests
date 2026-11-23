@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { newCard, type Card, type Stage } from "./records";
-import { MARKER, cell, groupOf, statusOf, titleOf, trackerMarkdown, type Row } from "./tracker";
+import { MARKER, cell, groupOf, shortNote, statusOf, titleOf, trackerMarkdown, type Row } from "./tracker";
 
 const NOW = Date.parse("2026-11-23T12:36:00Z");
 const DAY = 24 * 60 * 60_000;
@@ -70,4 +70,12 @@ test("the canvas groups requests, newest first, and drops old finished ones", ()
 
 test("an empty channel still gets a tracker", () => {
   assert.match(trackerMarkdown([], NOW), /No requests yet/);
+});
+
+test("long failure reasons are cut to their first clause", () => {
+  const louis =
+    "I can't switch this on yet: the board needs the Rentman number of Louis's new \"In-house prep\" field (Rentman shows it as \"custom_\" plus a number), it isn't written anywhere";
+  assert.equal(shortNote(louis), "I can't switch this on yet");
+  assert.equal(shortNote("The build didn't report back within 2 hours."), "The build didn't report back within 2 hours");
+  assert.ok(shortNote("word ".repeat(40)).length <= 78);
 });
