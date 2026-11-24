@@ -38,6 +38,6 @@ export function howToMarkdown(): string {
     "- :red_circle: **New idea** (a new screen, report or routine): Sam decides if it gets the full interview, as many rounds as it takes.",
     "- If your answers show it's bigger than it looked, the bot says so and moves it up a size.",
     "",
-    "**Tips:** if the bot gets you wrong, just reply in the thread. If you go quiet it nudges you after a working day and closes the request after three; reply to reopen it. Changes that go live are announced in #whats-new.",
+    "**Tips:** if the bot gets you wrong, just reply in the thread. If you go quiet it nudges you after a working day and closes the request after three; reply to reopen it. Once Jamie, Sam or anyone else joins the conversation, the bot steps back and leaves you to talk; mention @App requests to bring it back. Changes that go live are announced in #whats-new.",
   ].join("\n");
 }
