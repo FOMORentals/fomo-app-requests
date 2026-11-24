@@ -7,7 +7,7 @@ import { encodeRef, type ApprovalRef, type Card, type Scope, type Stage, type Su
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Block = Record<string, any>;
 
-const STEPS = ["Received", "Questions", "Waiting for ✅", "Building", "Waiting for approval", "Live ✅"];
+export const STEPS = ["Received", "Questions", "Waiting for ✅", "Building", "Waiting for approval", "Live ✅"];
 
 const STEP_OF: Partial<Record<Stage, number>> = {
   reframe: 1,
