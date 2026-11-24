@@ -24,8 +24,8 @@ const a: Assessment = {
   related: { kind: "", ts: "", why: "" },
 };
 
-test("the four newer apps are 'built, Jamie checks'", () => {
-  assert.deepEqual(APPS.filter((x) => x.mode === "build_jamie").map((x) => x.key).sort(), ["consignor", "kit", "portal", "website"]);
+test("the newer apps are 'built, Jamie checks'", () => {
+  assert.deepEqual(APPS.filter((x) => x.mode === "build_jamie").map((x) => x.key).sort(), ["consignor", "portal", "website"]);
 });
 
 test("without an approved app card a small fix stays a proposal", () => {
