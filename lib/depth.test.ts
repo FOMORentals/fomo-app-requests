@@ -28,6 +28,7 @@ const a: Assessment = {
   needs: [],
   reframe: { after: "knowing which quotes to chase", exists: "Quotes (Upcoming)", scope: "", why: "", keep_small: "" },
   reply_note: "",
+  related: { kind: "", ts: "", why: "" },
 };
 const fresh: Depth = { reframed: false, scope: "", gate: "" };
 const dash = appByKey("dashboard");

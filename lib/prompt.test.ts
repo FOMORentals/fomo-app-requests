@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appByKey, MAX_ROUNDS } from "./config";
-import { enforce, RULES, transcript, type Assessment } from "./prompt";
+import { enforce, othersBlock, RULES, transcript, type Assessment } from "./prompt";
+import { relatedText } from "./blocks";
 
 const base: Assessment = {
   app: "overtime",
@@ -24,6 +25,7 @@ const base: Assessment = {
   needs: [],
   reframe: { after: "", exists: "", scope: "", why: "", keep_small: "" },
   reply_note: "",
+  related: { kind: "", ts: "", why: "" },
 };
 
 test("never more than 3 questions", () => {
@@ -109,4 +111,20 @@ test("once the ID is given, it summarises as normal", () => {
 test("the rules say never to guess a Rentman field ID and how to find one", () => {
   assert.match(RULES, /must never guess it/);
   assert.match(RULES, /Extra input fields/);
+});
+
+test("a clash with another request goes to Jamie; a repeat is only pointed out (Jamie, 24 Nov 2026)", () => {
+  const dash = appByKey("dashboard");
+  const clash = enforce({ ...base, tier: "small", next: "summarise", related: { kind: "clash", ts: "1795.1", why: "Rosie asked to sort by client" } }, 2, dash);
+  assert.equal(clash.tier, "bigger");
+  assert.match(clash.bigger_reasons.join(";"), /pulls against another request \(Rosie asked to sort by client\)/);
+  const dup = enforce({ ...base, tier: "small", next: "summarise", related: { kind: "duplicate", ts: "1795.1", why: "Will asked the same" } }, 2, dash);
+  assert.equal(dup.tier, "small");
+  // A claimed clash with no request named is dropped: the code needs the other request to link to it.
+  assert.equal(enforce({ ...base, next: "summarise", related: { kind: "clash", ts: "", why: "x" } }, 2, dash).related.kind, "");
+  const block = othersBlock([{ ts: "1795.1", who: "Rosie", date: "Mon 23 Nov", text: "Sort  the Kit\nPrep board by client" }]);
+  assert.match(block, /id 1795\.1 · Rosie · Mon 23 Nov: Sort the Kit Prep board by client/);
+  assert.match(othersBlock([]), /none/);
+  assert.match(relatedText("clash", "Rosie asked to sort by client", "https://x"), /pulls against <https:\/\/x\|another request>/);
+  assert.equal(relatedText("", "", ""), "");
 });

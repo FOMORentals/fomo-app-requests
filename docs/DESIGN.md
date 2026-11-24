@@ -64,6 +64,16 @@ change it here the same day (rule 7).
 - If the live check for a merged change keeps erroring for 45 minutes, Jamie gets one DM saying why, instead of the error only reaching the logs.
 - Changes built side by side can't clash (Jamie, 19 Nov 2026: "as robust as possible"). When a change is approved, the bot checks whether another change to the same files went live after it was built. If so it isn't merged: it's rebuilt on top of the live version (the build robot merges the latest version in and Claude resolves any clash), and comes back for approval. Design notes and team-note pictures don't count as a clash (nearly every change edits them); if GitHub refuses the merge anyway, that also triggers the rebuild. At most twice, then it merges as it is. Chosen over a one-at-a-time queue, which would make a run of requests wait on each approval.
 
+## Requests that repeat or clash (Jamie, 24 Nov 2026: "too many cooks spoil the broth")
+- Every turn, Claude also sees the other requests posted in #app-requests in the last 30 days (what each person first
+  posted; one Slack call). Before, open requests were never compared with each other, only with recorded decisions.
+- **A repeat** (someone already asked for the same thing): the bot says so kindly, naming who and when, asks whether
+  it's the same, and the summary and Sam's approval DM link the other request. It isn't blocked.
+- **A clash** (doing this would undo or pull against what someone else asked for, e.g. hide a column another asked to
+  add): it's never settled by whoever asked last. It becomes a proposal for Jamie with both requests linked; Sam sees
+  the copy and can comment. Code enforces it (`enforce`).
+- Only when it's clear; two requests about the same screen that don't overlap are neither.
+
 ## Things only a person can supply (Jamie, 23 Nov 2026)
 - After Louis's "In-house prep" request failed at build because nobody had been asked for the Rentman field's ID:
   when a change needs something only a person can create or look up (most often a Rentman extra input field and its

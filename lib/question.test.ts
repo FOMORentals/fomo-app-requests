@@ -25,6 +25,7 @@ const q: Assessment = {
   needs: [],
   reframe: { after: "", exists: "", scope: "", why: "", keep_small: "" },
   reply_note: "",
+  related: { kind: "", ts: "", why: "" },
 };
 
 test("Claude is told about why-questions and to look rather than guess", () => {
