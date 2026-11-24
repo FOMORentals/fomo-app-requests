@@ -186,7 +186,16 @@ export function summaryText(s: Summary): string {
   return [`*${s.title}*`, `*Now:* ${s.now}`, `*Should:* ${s.should}`, `*Who and how often:* ${s.who}`, `*Done looks like:* ${s.done}`, `*What I'll do:* ${s.plan}`].join("\n");
 }
 
-export function summaryBlocks(requester: string, a: Assessment, app: App, value: string, reading = ""): Block[] {
+/** The line about another request this repeats or clashes with (Jamie, 24 Nov 2026). Pure. */
+export function relatedText(kind: "" | "duplicate" | "clash", why: string, url: string): string {
+  if (!kind) return "";
+  const other = url ? `<${url}|another request>` : "another request";
+  return kind === "clash"
+    ? `⚖️ *This pulls against ${other}:* ${why || "they ask for different things on the same screen"}. Both people's needs have to be weighed, so it goes to Jamie (Sam sees it too).`
+    : `🔁 *Much the same as ${other}:* ${why}`;
+}
+
+export function summaryBlocks(requester: string, a: Assessment, app: App, value: string, reading = "", relatedUrl = ""): Block[] {
   const route =
     a.tier === "small"
       ? `This is a *small fix*. Once you tap ✅ I'll build it, and Sam will check it before it goes live.`
@@ -202,6 +211,8 @@ export function summaryBlocks(requester: string, a: Assessment, app: App, value:
   if (missing.length)
     blocks.push({ type: "section", text: { type: "mrkdwn", text: `📌 *Still needed before it can be built:* ${missing.map((n) => n.what).join("; ")}. Jamie will be asked for ${missing.length === 1 ? "it" : "them"} before anything is built.` } });
   if (a.contradiction.found) blocks.push(contradictionBlock(a));
+  const rel = a.related ? relatedText(a.related.kind, a.related.why, relatedUrl) : "";
+  if (rel) blocks.push({ type: "section", text: { type: "mrkdwn", text: rel.slice(0, 2990) } });
   if (!a.recorded_decision_found) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "There's no recorded decision on this, so it wasn't checked against one." }] });
   blocks.push({ type: "section", text: { type: "mrkdwn", text: route } });
   blocks.push({
@@ -276,7 +287,7 @@ export function verdictBlocks(o: { requester: string; verdict: Verdict; answer: 
 export type Built = { changed: string; checks: "passed" | "failed"; preview: string; prUrl: string };
 
 /** To Sam (small fixes) or Jamie (bigger ones he said to build): the finished change. */
-export function approvalBlocks(o: { app: App; requester: string; summary: Summary; built: Built; link: string; noDecision: boolean; value: string }): Block[] {
+export function approvalBlocks(o: { app: App; requester: string; summary: Summary; built: Built; link: string; noDecision: boolean; value: string; related?: string }): Block[] {
   const blocks: Block[] = [
     { type: "section", text: { type: "mrkdwn", text: `*Ready to ship: ${o.summary.title}*\n${o.app.name} · asked by <@${o.requester}> · <${o.link}|the request>` } },
     { type: "section", text: { type: "mrkdwn", text: `*What was asked:* ${o.summary.should}\n*Done looks like:* ${o.summary.done}` } },
@@ -293,6 +304,7 @@ export function approvalBlocks(o: { app: App; requester: string; summary: Summar
       },
     },
   ];
+  if (o.related) blocks.push({ type: "section", text: { type: "mrkdwn", text: o.related.slice(0, 2990) } });
   if (o.noDecision) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "No recorded decision on this: it wasn't checked against one." }] });
   blocks.push({
     type: "actions",
@@ -320,6 +332,8 @@ export function proposalBlocks(o: { app: App; requester: string; summary: Summar
       type: "section",
       text: { type: "mrkdwn", text: `📌 *Needed before it can be built:*\n${missing.map((n) => `• ${n.what}${n.where ? ` (${n.where})` : ""}`).join("\n")}${o.forSam ? "" : "\nBuild it will ask you for this first."}` },
     });
+  const rel = relatedText(o.card.relatedKind, o.card.relatedWhy, o.card.relatedUrl);
+  if (rel) blocks.push({ type: "section", text: { type: "mrkdwn", text: rel.slice(0, 2990) } });
   if (o.card.contradiction) blocks.push({ type: "section", text: { type: "mrkdwn", text: `⚠️ *It would change your decision:*\n>${o.card.contradiction.replace(/\n/g, "\n>")}` } });
   if (o.card.noDecision) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "No recorded decision on this: it wasn't checked against one." }] });
   if (o.card.samComment) blocks.push({ type: "section", text: { type: "mrkdwn", text: `*Sam:* ${o.card.samComment}` } });

@@ -24,6 +24,7 @@ const a: Assessment = {
   needs: [],
   reframe: { after: "", exists: "", scope: "", why: "", keep_small: "" },
   reply_note: "",
+  related: { kind: "", ts: "", why: "" },
 };
 
 /** What the team sees of the flow: if any of this changes, the how-to text must be checked again. */

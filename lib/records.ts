@@ -90,6 +90,10 @@ export type Card = {
   elsewhereMsg: string; // the newest of Jamie's thread replies already checked ("it's done/sorted" counts too)
   undo: string; // JSON of what the bot changed when it marked this done itself, so Undo can put it back; "" otherwise
   undoTs: string; // the bot's "looks done" message in the thread, with the Undo button
+  // Requests that clash with or repeat another one (Jamie, 24 Nov 2026: "too many cooks").
+  relatedKind: "" | "duplicate" | "clash";
+  relatedUrl: string; // link to the other request's post
+  relatedWhy: string; // one line: whose request, when, and how they overlap
 };
 
 export type Scope = "" | "quick_fix" | "change" | "new_idea";
@@ -144,6 +148,9 @@ export function newCard(requester: string): Card {
     elsewhereMsg: "",
     undo: "",
     undoTs: "",
+    relatedKind: "",
+    relatedUrl: "",
+    relatedWhy: "",
   };
 }
 

@@ -12,6 +12,7 @@ import {
   proposalBlocks,
   questionBlocks,
   readingText,
+  relatedText,
   reframeBlocks,
   stepUpBlocks,
   summaryBlocks,
@@ -40,11 +41,12 @@ import {
   threadLines,
   type Loaded,
 } from "./actions";
-import { enforce, missingNeeds, notesBlock, transcript, turnPrompt, type Assessment, type Depth } from "./prompt";
+import { enforce, missingNeeds, notesBlock, othersBlock, transcript, turnPrompt, type Assessment, type Depth, type Other } from "./prompt";
 import { approvalMeta, cardMeta, decodeRef, encodeRef, newCard, reopensOnReply } from "./records";
 import { grillFromMessage, grillReply, grillRequest } from "./grill/handlers";
 import { report } from "./report";
-import { channel as requestsChannel, fileBase64, slack, userEmail } from "./slack";
+import { channel as requestsChannel, fileBase64, history, messageLink, slack, userEmail } from "./slack";
+import { shortDate } from "./tracker";
 
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
 const MAX_IMAGE_BYTES = 3_500_000;
@@ -107,13 +109,34 @@ async function notesFor(appKey: string): Promise<string> {
   return notesBlock(app, notes);
 }
 
+/**
+ * The other requests of the last 30 days, so Claude can spot repeats and clashes (Jamie, 24 Nov 2026).
+ * One Slack call (the channel's history); never blocks the turn.
+ */
+async function otherRequests(l: Loaded, now: number): Promise<Other[]> {
+  try {
+    const top = await history(l.channel, now - 30 * 24 * 60 * 60_000);
+    const out: Other[] = [];
+    for (const m of top.sort((a, b) => Number(b.ts) - Number(a.ts))) {
+      if (m.ts === l.thread || m.bot_id || !m.user || !(m.text ?? "").trim() || (m.subtype && m.subtype !== "file_share" && m.subtype !== "thread_broadcast")) continue;
+      out.push({ ts: m.ts, who: await nameOf(m.user), date: shortDate(Number(m.ts) * 1000), text: m.text ?? "" });
+      if (out.length >= 40) break;
+    }
+    return out;
+  } catch (err) {
+    report(err, "turn.others", { thread: l.thread });
+    return [];
+  }
+}
+
 /** One turn: Claude reads the thread, then asks questions, summarises, or answers. */
 export async function turn(l: Loaded, now = Date.now(), reading = ""): Promise<void> {
   try {
     const thread = transcript(await threadLines(l));
     const pics = await images(l);
     const depth: Depth = { reframed: l.card.reframed, scope: l.card.scope, gate: l.card.gate };
-    const run = async (appKey: string) => assess({ notes: await notesFor(appKey), thread, turn: turnPrompt(l.card.round, appKey, l.card.fixing, depth), images: pics });
+    const others = othersBlock(await otherRequests(l, now));
+    const run = async (appKey: string) => assess({ notes: `${await notesFor(appKey)}\n\n${others}`, thread, turn: turnPrompt(l.card.round, appKey, l.card.fixing, depth), images: pics });
     let a: Assessment = await run(l.card.app);
     // First time the app is known: read again, this time with that app's design notes.
     if (appByKey(a.app) && a.app !== l.card.app) {
@@ -194,10 +217,13 @@ async function act(l: Loaded, a: Assessment, now: number, reading = ""): Promise
       ? `${a.contradiction.decision}${a.contradiction.decided_on ? ` (${a.contradiction.decided_on})` : ""}${a.contradiction.where ? ` [${a.contradiction.where}]` : ""}`
       : "";
     c.noDecision = !a.recorded_decision_found;
+    c.relatedKind = a.related.kind;
+    c.relatedWhy = a.related.why;
+    c.relatedUrl = a.related.kind ? await messageLink(l.channel, a.related.ts) : "";
     c.size = a.size;
     c.needs = a.needs;
     const text = `Here's what I'll do: ${a.summary.title}. ${a.summary.plan}`;
-    await postInThread(l.channel, l.thread, text, summaryBlocks(c.requester, a, app, encodeRef(l), reading));
+    await postInThread(l.channel, l.thread, text, summaryBlocks(c.requester, a, app, encodeRef(l), reading, c.relatedUrl));
   } else if (a.next === "investigate" && canLookInto(app) && c.looks < MAX_LOOKS) {
     await startLook(l, app, a.how_to, now);
     return;
@@ -691,7 +717,7 @@ export async function handleBuildReport(r: BuildReport, now = Date.now()): Promi
     const d = await dm(
       approverEmail,
       `Ready to ship: ${title}`,
-      approvalBlocks({ app: appOf(l), requester: l.card.requester, summary: l.card.summary!, built, link: await link(l), noDecision: l.card.noDecision, value: encodeRef(l) }),
+      approvalBlocks({ app: appOf(l), requester: l.card.requester, summary: l.card.summary!, built, link: await link(l), noDecision: l.card.noDecision, value: encodeRef(l), related: relatedText(l.card.relatedKind, l.card.relatedWhy, l.card.relatedUrl) }),
       approvalMeta(l),
     );
     Object.assign(l.card, { stage: "approval", pr: r.pr, prUrl: r.prUrl, preview: r.preview ?? "", approvalChannel: d.channel, approvalTs: d.ts, pendingSince: now, reminded: false });
