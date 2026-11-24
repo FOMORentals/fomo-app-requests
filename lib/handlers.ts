@@ -11,6 +11,7 @@ import {
   lookingBlocks,
   proposalBlocks,
   questionBlocks,
+  readingText,
   reframeBlocks,
   stepUpBlocks,
   summaryBlocks,
@@ -107,7 +108,7 @@ async function notesFor(appKey: string): Promise<string> {
 }
 
 /** One turn: Claude reads the thread, then asks questions, summarises, or answers. */
-export async function turn(l: Loaded, now = Date.now()): Promise<void> {
+export async function turn(l: Loaded, now = Date.now(), reading = ""): Promise<void> {
   try {
     const thread = transcript(await threadLines(l));
     const pics = await images(l);
@@ -122,7 +123,7 @@ export async function turn(l: Loaded, now = Date.now()): Promise<void> {
     }
     const app = appByKey(l.card.app);
     a = enforce(a, l.card.round, app, l.card.fixing, depth);
-    await act(l, a, now);
+    await act(l, a, now, reading);
   } catch (err) {
     report(err, "turn", { thread: l.thread });
     await postInThread(l.channel, l.thread, "Sorry, something went wrong while I was reading this. Jamie has been told. Reply here to try again.").catch((e) =>
@@ -131,11 +132,34 @@ export async function turn(l: Loaded, now = Date.now()): Promise<void> {
   }
 }
 
-async function act(l: Loaded, a: Assessment, now: number): Promise<void> {
+/** `reading`: how Claude read a quick fix that had no questions, shown at the top of its summary. */
+async function act(l: Loaded, a: Assessment, now: number, reading = ""): Promise<void> {
   const c = l.card;
   const app = appByKey(c.app);
-  if (a.next === "reframe") {
-    // How Claude reads it, and its size, for the requester to confirm before any questions (Jamie, 23 Nov 2026).
+  if (a.next === "reframe" && a.reframe.scope !== "new_idea") {
+    // A quick fix or a change: how Claude read it and its size, with the first questions, in one message, and
+    // nothing to tap; the requester's reply confirms or corrects the reading (Jamie, 24 Nov 2026).
+    c.reframed = true;
+    c.scope = a.reframe.scope;
+    c.scopeWhy = a.reframe.why;
+    c.after = a.reframe.after;
+    c.askedAt = now;
+    c.nudged = false;
+    const read = readingText(a.reframe);
+    if (!a.questions.length && !missingNeeds(a.needs).length) {
+      // Nothing to ask (a clear quick fix): straight to the summary, with the reading at its top.
+      c.stage = "grilling";
+      await save(l);
+      await turn(l, now, read);
+      return;
+    }
+    c.round += 1;
+    c.stage = "grilling";
+    c.needs = a.needs;
+    const text = [`Here's how I read this: ${a.reframe.after}`, a.questions.map((q, i) => `${i + 1}. ${q.q} (Suggested: ${q.suggested})`).join("\n"), needsText(a.needs).replace(/\*/g, "")].filter(Boolean).join("\n");
+    await postInThread(l.channel, l.thread, text, questionBlocks(c.requester, a, c.round, read));
+  } else if (a.next === "reframe") {
+    // A new idea: how Claude reads it, and its size, for the requester to confirm before Sam is asked (Jamie, 23 Nov 2026).
     c.stage = "reframe";
     c.scope = a.reframe.scope;
     c.scopeWhy = a.reframe.why;
@@ -158,7 +182,7 @@ async function act(l: Loaded, a: Assessment, now: number): Promise<void> {
     c.nudged = false;
     c.needs = a.needs;
     const text = [a.questions.map((q, i) => `${i + 1}. ${q.q} (Suggested: ${q.suggested})`).join("\n"), needsText(a.needs).replace(/\*/g, "")].filter(Boolean).join("\n");
-    await postInThread(l.channel, l.thread, text, questionBlocks(c.requester, a, c.round));
+    await postInThread(l.channel, l.thread, text, questionBlocks(c.requester, a, c.round, reading));
   } else if (a.next === "summarise" && app) {
     c.stage = "confirm";
     c.askedAt = now;
@@ -173,7 +197,7 @@ async function act(l: Loaded, a: Assessment, now: number): Promise<void> {
     c.size = a.size;
     c.needs = a.needs;
     const text = `Here's what I'll do: ${a.summary.title}. ${a.summary.plan}`;
-    await postInThread(l.channel, l.thread, text, summaryBlocks(c.requester, a, app, encodeRef(l)));
+    await postInThread(l.channel, l.thread, text, summaryBlocks(c.requester, a, app, encodeRef(l), reading));
   } else if (a.next === "investigate" && canLookInto(app) && c.looks < MAX_LOOKS) {
     await startLook(l, app, a.how_to, now);
     return;
@@ -552,7 +576,7 @@ async function approve(l: Loaded, u: Who): Promise<void> {
   l.card.nudged = false;
   await save(l);
   await settle(l.card.approvalChannel, l.card.approvalTs, l.card.summary?.title ?? "Change", `Approved by ${name}. Going live now.`);
-  await postInThread(l.channel, l.thread, `Approved by ${name}. Going live now; I'll post here when it is.`);
+  // No message in the thread: the status line says "Going live" (Jamie, 24 Nov 2026: fewer messages).
 }
 
 async function proposalDecision(l: Loaded, action: string, u: Who): Promise<void> {
@@ -671,8 +695,7 @@ export async function handleBuildReport(r: BuildReport, now = Date.now()): Promi
       approvalMeta(l),
     );
     Object.assign(l.card, { stage: "approval", pr: r.pr, prUrl: r.prUrl, preview: r.preview ?? "", approvalChannel: d.channel, approvalTs: d.ts, pendingSince: now, reminded: false });
-    await save(l);
-    await postInThread(l.channel, l.thread, `Built. ${approverName} will check it before it goes live.`);
+    await save(l); // the status line now says "Waiting for <approver>", with the preview: no message (Jamie, 24 Nov 2026)
   } else if (r.outcome === "bigger" && l.card.approver !== "jamie") {
     // Only for a small fix: a build Jamie already said yes to never goes back to him as a proposal (it looped, 19 Nov 2026).
     // Safety net (design): a "small" build that turns out to touch a Bigger area stops and becomes a proposal.

@@ -47,9 +47,10 @@ The team aren't practised at asking for changes: a request often names a solutio
 - reframe.after: what they're really trying to achieve, who it's for and how often, in their terms. Start from the outcome, not the solution they asked for (e.g. "knowing which quotes to chase today, so none go cold", not "an export of quotes").
 - reframe.exists: what the apps already do that's relevant, from the design notes, and what's missing. Prefer changing what exists to building something new; say so when an existing screen nearly does it.
 - reframe.scope: "quick_fix" (a typo, wording, a broken button, one obvious fix), "change" (a column, a filter, a reminder time, a tweak to an existing screen or message), or "new_idea" (a new screen, report, routine or workflow; data the app doesn't have from another system; customer emails; anything that changes how the team works day to day). When unsure between change and new_idea, pick new_idea: Sam decides whether it gets the full grill.
-- reframe.why: one line on why that size. Leave questions empty.
-If the requester replies correcting you, reframe again with what they said.
-Once the reading is confirmed, carry on as below. A quick fix gets at most one question, or none. If the answers show a change is really a new idea (it now needs customer emails, a new screen, another system's data, or a new routine), set next "step_up": reframe.why says what made it bigger, reframe.keep_small says what to drop to keep it a change.
+- reframe.why: one line on why that size.
+- questions: for a quick fix or a change, put your first round of numbered questions here too (a quick fix: one at most, or none), so your reading and your questions arrive as one message and the requester has nothing extra to tap (Jamie, 24 Nov 2026). Their reply confirms your reading or corrects it. For a new idea, leave questions empty: the requester confirms the reading with a button before Sam is asked.
+If the requester replies correcting your reading, go with what they said.
+After that, carry on as below. A quick fix gets at most one question, or none. If the answers show a change is really a new idea (it now needs customer emails, a new screen, another system's data, or a new routine), set next "step_up": reframe.why says what made it bigger, reframe.keep_small says what to drop to keep it a change.
 
 "WHY IS THE APP DOING THIS?" QUESTIONS (Jamie, 20 Nov 2026)
 The team can also ask why an app is behaving a certain way: something isn't refreshing as often as expected, a button doesn't do what they expected, a number looks wrong, a screen looks stuck. They often start with "?" or "why". What they want is to understand the right process, or to find out that something needs fixing and get it fixed.
@@ -112,7 +113,7 @@ export const ASSESSMENT_JSON_SCHEMA = obj({
     }),
     description: 'Filled when next is "reframe" or "step_up"; else empty strings.',
   },
-  questions: { type: "array", items: obj({ q: str, suggested: str }), description: `At most ${MAX_QUESTIONS}. Empty unless next is "ask".` },
+  questions: { type: "array", items: obj({ q: str, suggested: str }), description: `At most ${MAX_QUESTIONS}. Empty unless next is "ask", or "reframe" for a quick fix or a change (its first round).` },
   needs: {
     type: "array",
     items: obj({ what: str, where: str, value: str }),
@@ -150,7 +151,7 @@ export function turnPrompt(rounds: number, appKey: string, fixing = false, depth
     needsReframe(rounds, fixing, depth)
       ? 'The reading of this request is not confirmed yet: if it is a change request, answer with next "reframe" (or reframe again if the requester corrected you).'
       : depth.scope
-        ? `The requester confirmed your reading. Size: ${depth.scope.replace("_", " ")}.${depth.gate === "small" ? " Sam (or the requester) chose to keep it small: don't step up again; keep it to a change." : ""}${depth.scope === "quick_fix" ? " At most one question, or none." : ""}`
+        ? `You have given the requester your reading of this request (size: ${depth.scope.replace("_", " ")}); if their reply says you misread them, go with their correction.${depth.gate === "small" ? " Sam (or the requester) chose to keep it small: don't step up again; keep it to a change." : ""}${depth.scope === "quick_fix" ? " At most one question, or none." : ""}`
         : "",
     `Rounds of questions used so far: ${rounds} of ${MAX_ROUNDS}.`,
     rounds >= MAX_ROUNDS ? "No more numbered questions, but still list in needs anything only a person can supply, with its value if the thread now gives it." : "",
@@ -186,7 +187,10 @@ export function enforce(a: Assessment, rounds: number, app: App | undefined, fix
   if (out.next === "reframe" && (!reframing || out.kind !== "change")) out.next = out.questions.length ? "ask" : "summarise";
   if (out.next === "reframe") {
     if (!out.reframe.scope) out.reframe = { ...out.reframe, scope: "change" };
-    out.questions = [];
+    // A quick fix or a change gets its first questions with the reading, in one message (Jamie, 24 Nov 2026).
+    // A new idea is confirmed with a button first, because Sam is asked next.
+    if (out.reframe.scope === "new_idea") out.questions = [];
+    if (out.reframe.scope === "quick_fix") out.questions = out.questions.slice(0, 1);
     return out;
   }
   // Step up only from a confirmed change that nobody has already chosen to keep small.

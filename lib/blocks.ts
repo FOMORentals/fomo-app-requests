@@ -36,6 +36,7 @@ const ENDINGS: Partial<Record<Stage, string>> = {
 /** The one status line Claude keeps updated at the top of the thread. */
 export function statusLine(stage: Stage, waitingOn = ""): string {
   if (stage === "looking") return "*Status:* Received → *Looking into it* → Answered";
+  if (stage === "queued") return `*Status:* ${STEPS.map((s, i) => (i === 3 ? "*In the queue to be built*" : s)).join(" → ")}`;
   const end = ENDINGS[stage];
   if (end) return `*Status:* ${end}`;
   const at = STEP_OF[stage] ?? 0;
@@ -51,6 +52,7 @@ export function cardBlocks(c: Card, app: App | undefined, ref?: ApprovalRef): Bl
   const bits = [app ? app.name : "", c.tier === "small" ? "Small fix" : c.tier === "bigger" ? "Bigger: a proposal for Jamie" : ""].filter(Boolean);
   const blocks: Block[] = [{ type: "section", text: { type: "mrkdwn", text: statusLine(c.stage, waitingOn) } }];
   const ctx = [...bits];
+  if (c.preview && c.stage === "approval") ctx.push(`<${c.preview}|Preview it>`);
   if (c.prUrl && (c.stage === "approval" || c.stage === "deploying" || c.stage === "live")) ctx.push(`<${c.prUrl}|The change>`);
   if (c.stage === "explained" && c.verdict) ctx.push(VERDICTS[c.verdict].label);
   if (c.stage === "failed" && c.note) ctx.push(c.note);
@@ -79,8 +81,7 @@ export const SCOPE_LABEL: Record<Exclude<Scope, "">, string> = { quick_fix: "�
 
 /** "Here's how I read this" (Jamie, 23 Nov 2026): the outcome, what exists, and the size, for the requester to confirm. */
 export function reframeBlocks(o: { requester: string; after: string; exists: string; scope: Scope; why: string; value: string }): Block[] {
-  const size = o.scope ? `${SCOPE_LABEL[o.scope]}${o.why ? `: ${o.why}` : ""}` : o.why;
-  const quote = [`*What you're after:* ${o.after}`, o.exists ? `*What exists:* ${o.exists}` : "", size ? `*Size:* ${size}` : ""].filter(Boolean).map((l) => `> ${l.replace(/\n/g, "\n> ")}`).join("\n");
+  const quote = readingText(o);
   return [
     { type: "section", text: { type: "mrkdwn", text: `<@${o.requester}> *Here's how I read this*\n${quote}`.slice(0, 2990) } },
     { type: "context", elements: [{ type: "mrkdwn", text: "Is that what you mean? If not, reply and tell me what I've got wrong." }] },
@@ -136,16 +137,34 @@ export function givenText(needs: Need[] | undefined): string {
   return given.length ? `*Using:* ${given.map((n) => `${n.what}: *${n.value}*`).join("; ")}` : "";
 }
 
-export function questionBlocks(requester: string, a: Assessment, round: number): Block[] {
-  const intro =
-    round > MAX_ROUNDS
+/** How Claude read the request and its size, shown with the first questions (Jamie, 24 Nov 2026). Pure. */
+export function readingText(r: { after: string; exists: string; scope: Scope; why: string }): string {
+  const size = r.scope ? `${SCOPE_LABEL[r.scope]}${r.why ? `: ${r.why}` : ""}` : r.why;
+  return [`*What you're after:* ${r.after}`, r.exists ? `*What exists:* ${r.exists}` : "", size ? `*Size:* ${size}` : ""]
+    .filter(Boolean)
+    .map((l) => `> ${l.replace(/\n/g, "\n> ")}`)
+    .join("\n");
+}
+
+/**
+ * The numbered questions. With `reading`, it's the first message of a quick fix or a change: how Claude read it
+ * and its size, with the first questions, so the requester has one message to answer and nothing to tap
+ * (Jamie, 24 Nov 2026).
+ */
+export function questionBlocks(requester: string, a: Assessment, round: number, reading = ""): Block[] {
+  const ask = a.questions.length
+    ? `A few quick questions so this comes out right (round ${round} of ${MAX_ROUNDS}). Reply in this thread, e.g. "1 yes", or tell me if I've misread you.`
+    : "Reply in this thread, or tell me if I've misread you.";
+  const intro = reading
+    ? `<@${requester}> *Here's how I read this*\n${reading}\n\n${ask}`
+    : round > MAX_ROUNDS
       ? `<@${requester}> thanks. One last thing before I can write this up.`
       : round === 1
         ? `<@${requester}> thanks. A few quick ${a.questions.length ? "questions" : "things"} so this comes out right (round ${round} of ${MAX_ROUNDS}). Reply in this thread${a.questions.length ? ', e.g. "1 yes, 2 b"' : ""}.`
         : `<@${requester}> thanks, nearly there (round ${round} of ${MAX_ROUNDS}). Reply in this thread.`;
   const blocks: Block[] = [];
   if (a.reply_note) blocks.push({ type: "section", text: { type: "mrkdwn", text: a.reply_note } });
-  blocks.push({ type: "section", text: { type: "mrkdwn", text: intro } });
+  blocks.push({ type: "section", text: { type: "mrkdwn", text: intro.slice(0, 2990) } });
   if (a.contradiction.found) blocks.push(contradictionBlock(a));
   a.questions.forEach((q, i) => {
     blocks.push({ type: "section", text: { type: "mrkdwn", text: `*${i + 1}.* ${q.q}\n➡️ _Suggested:_ ${q.suggested}` } });
@@ -167,14 +186,15 @@ export function summaryText(s: Summary): string {
   return [`*${s.title}*`, `*Now:* ${s.now}`, `*Should:* ${s.should}`, `*Who and how often:* ${s.who}`, `*Done looks like:* ${s.done}`, `*What I'll do:* ${s.plan}`].join("\n");
 }
 
-export function summaryBlocks(requester: string, a: Assessment, app: App, value: string): Block[] {
+export function summaryBlocks(requester: string, a: Assessment, app: App, value: string, reading = ""): Block[] {
   const route =
     a.tier === "small"
       ? `This is a *small fix*. Once you tap ✅ I'll build it, and Sam will check it before it goes live.`
       : `This is a *bigger* one (${a.bigger_reasons.join("; ") || "a new feature"}), so once you tap ✅ it goes to Jamie as a proposal. Nothing is built until he says so.`;
   const blocks: Block[] = [];
   if (a.reply_note) blocks.push({ type: "section", text: { type: "mrkdwn", text: a.reply_note } });
-  blocks.push({ type: "section", text: { type: "mrkdwn", text: `<@${requester}> here's what I'll do on *${app.name}*:` } });
+  if (reading) blocks.push({ type: "section", text: { type: "mrkdwn", text: `<@${requester}> *Here's how I read this*\n${reading}`.slice(0, 2990) } });
+  blocks.push({ type: "section", text: { type: "mrkdwn", text: `${reading ? "" : `<@${requester}> `}here's what I'll do on *${app.name}*:` } });
   blocks.push({ type: "section", text: { type: "mrkdwn", text: summaryText(a.summary) } });
   const given = givenText(a.needs);
   if (given) blocks.push({ type: "section", text: { type: "mrkdwn", text: given } });
@@ -186,7 +206,7 @@ export function summaryBlocks(requester: string, a: Assessment, app: App, value:
   blocks.push({ type: "section", text: { type: "mrkdwn", text: route } });
   blocks.push({
     type: "actions",
-    elements: [{ type: "button", style: "primary", action_id: "confirm", text: { type: "plain_text", text: "✅ Yes, that's right" }, value }],
+    elements: [{ type: "button", style: "primary", action_id: "confirm", text: { type: "plain_text", text: a.tier === "small" ? "✅ Yes, build it" : "✅ Yes, send it to Jamie" }, value }],
   });
   blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Not quite right? Reply in this thread and I'll redo the summary." }] });
   return blocks;

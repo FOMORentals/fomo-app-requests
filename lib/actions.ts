@@ -123,8 +123,7 @@ export async function startBuild(l: Loaded, approver: "sam" | "jamie", running: 
   l.card.approver = approver;
   if (running >= MAX_BUILDS) {
     l.card.stage = "queued";
-    await save(l);
-    await postInThread(l.channel, l.thread, `Confirmed. ${MAX_BUILDS} changes are being built right now, so this one is next in the queue.`);
+    await save(l); // the status line says it's in the queue: no message (Jamie, 24 Nov 2026: fewer messages)
     return "queued";
   }
   const rules = (await fileNow("fomo-app-requests", "rules/FOMO-ENGINEERING-RULES.md")) ?? "";
@@ -147,8 +146,7 @@ export async function startBuild(l: Loaded, approver: "sam" | "jamie", running: 
   l.card.stage = "building";
   l.card.startedAt = now;
   l.card.note = "";
-  await save(l);
-  await postInThread(l.channel, l.thread, "Building it now. This usually takes 10 to 20 minutes.");
+  await save(l); // the status line says "Building": no message (Jamie, 24 Nov 2026: fewer messages)
   return "started";
 }
 
