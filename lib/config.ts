@@ -27,10 +27,12 @@ export function personByEmail(email: string | null | undefined): Person | null {
 
 /**
  * build:     small fixes are built, then Sam approves.
+ * build_jamie: small wording, layout or display fixes are built, then Jamie approves; only once the app has an
+ *             approved app card in its docs/DESIGN.md, otherwise proposals (Jamie, 24 Nov 2026).
  * proposal:  every request is a written proposal; Jamie decides (customers see it, or it writes to Rentman).
  * not_offered: behind the scenes, or only Jamie uses it. Claude says it's one for Jamie.
  */
-export type Mode = "build" | "proposal" | "not_offered";
+export type Mode = "build" | "build_jamie" | "proposal" | "not_offered";
 
 export type App = {
   key: string;
@@ -47,10 +49,10 @@ export const APPS: App[] = [
   { key: "overtime", repo: "fomo-overtime", name: "Overtime", mode: "build", about: "overtime slots in Slack #rentals_overtime, /overtime, claiming and giving away slots, the admin page and CSV" },
   { key: "whatsnew", repo: "fomo-whats-new", name: "What's new", mode: "build", about: "the #whats-new channel, /whatsnew, the history page, idea votes" },
   { key: "inventory", repo: "fomo-inventory-dashboard", name: "Inventory dashboard", mode: "build", about: "fleet and kit charts and KPIs: Overview, Explore, buy and sell decisions, cross-hire, data pages (its Onboarding section is Kit onboarding, below)" },
-  { key: "portal", repo: "fomo-client-portal", name: "Client portal", mode: "proposal", about: "what clients see: quotes, invoices, Pay now, kit builder, packing checklist" },
-  { key: "website", repo: "fomo-rentals-website-rebuild", name: "Website", mode: "proposal", about: "the public website fomorentals.co.uk, the Open Account form, the rate card" },
-  { key: "kit", repo: "fomo-kit-onboarding", name: "Kit onboarding", mode: "proposal", about: "adding new kit to Rentman: the Onboarding section of the inventory dashboard (batches, goods in, push to Rentman) and the job behind it" },
-  { key: "consignor", repo: "fomo-consignor-portal", name: "Consignor portal", mode: "proposal", about: "what consignors (kit owners such as FKF One) see about their kit and commission" },
+  { key: "portal", repo: "fomo-client-portal", name: "Client portal", mode: "build_jamie", about: "what clients see: quotes, invoices, Pay now, kit builder, packing checklist" },
+  { key: "website", repo: "fomo-rentals-website-rebuild", name: "Website", mode: "build_jamie", about: "the public website fomorentals.co.uk, the Open Account form, the rate card" },
+  { key: "kit", repo: "fomo-kit-onboarding", name: "Kit onboarding", mode: "build_jamie", about: "adding new kit to Rentman: the Onboarding section of the inventory dashboard (batches, goods in, push to Rentman) and the job behind it" },
+  { key: "consignor", repo: "fomo-consignor-portal", name: "Consignor portal", mode: "build_jamie", about: "what consignors (kit owners such as FKF One) see about their kit and commission" },
   { key: "requests", repo: "fomo-app-requests", name: "App requests", mode: "proposal", about: "this #app-requests channel itself: the questions, approvals and builds" },
   { key: "status", repo: "fomo-status-dashboard", name: "Status dashboard", mode: "not_offered", about: "Jamie's traffic-light view of every system" },
   { key: "function", repo: "fomo-cloud-function", name: "Rentman-HubSpot link (Cloud Function)", mode: "not_offered", about: "behind the scenes: Rentman to HubSpot deal sync, KPI sheet, Xero export, invoice reminders" },

@@ -8,7 +8,14 @@ import { APPS, MAX_QUESTIONS, MAX_ROUNDS, type App } from "./config";
 export const MODEL = "claude-opus-5-5";
 
 const appLines = APPS.map((a) => {
-  const mode = a.mode === "build" ? "small fixes can be built" : a.mode === "proposal" ? "proposals only (Jamie decides)" : "not offered to the team (it's one for Jamie)";
+  const mode =
+    a.mode === "build"
+      ? "small fixes can be built"
+      : a.mode === "build_jamie"
+        ? "small wording, layout or display fixes can be built once its app card is approved (Jamie checks them); anything else is a proposal"
+        : a.mode === "proposal"
+          ? "proposals only (Jamie decides)"
+          : "not offered to the team (it's one for Jamie)";
   return `- ${a.key}: ${a.name}: ${a.about}. ${mode}.`;
 }).join("\n");
 
@@ -38,7 +45,8 @@ WHAT YOU DO, IN ORDER
 5. Sort it into a tier:
    - "small": a bug, wording, a column or filter, a button in the wrong place, a reminder time, on an app where small fixes can be built.
    - "bigger": anything new (a feature, screen or report); anything touching deal money, payments or invoices; customer emails; Rentman writes or more Rentman calls; HubSpot or Xero writes; logins and who can see what; a new scheduled job; deleting data; anything on an app marked "proposals only"; anything that contradicts a recorded decision; anything that needs information the design notes don't say the app already has (from Rentman, HubSpot, Xero or anywhere else). Never call it small on an assumption that the app already has the data: if you'd have to write that assumption, it is bigger. List every reason in bigger_reasons.
-   - Who checks it: a small fix is checked by Sam before it goes live; only bigger ones go to Jamie as a proposal. Never tell the requester Jamie will look at a small fix.
+   - On an app where "small wording, layout or display fixes" can be built, only those are small: anything that changes what the app does, what it stores or what it sends is bigger.
+   - Who checks it: a small fix is checked by Sam before it goes live (Jamie on apps marked "Jamie checks them"); bigger ones go to Jamie as a proposal. Never tell the requester Jamie will look at a small fix on any other app.
    - Give a size for bigger work: S (an afternoon), M (a day or two), L (more).
    - Apps "not offered to the team": no questions, next "answer", how_to says it's one for Jamie and you've passed it on.
 
@@ -215,7 +223,7 @@ export function needsReframe(rounds: number, fixing: boolean, depth: Depth): boo
 }
 
 /** Code-side guard rails on Claude's answer, so the agreed rules hold even if the model slips. */
-export function enforce(a: Assessment, rounds: number, app: App | undefined, fixing = false, depth: Depth = REFRAMED): Assessment {
+export function enforce(a: Assessment, rounds: number, app: App | undefined, fixing = false, depth: Depth = REFRAMED, hasCard = false): Assessment {
   const out: Assessment = { ...a, questions: a.questions.slice(0, MAX_QUESTIONS), bigger_reasons: [...a.bigger_reasons], needs: a.needs.filter((n) => n.what.trim()) };
   // Reframe first (Jamie, 23 Nov 2026): a change request's first answer says how it was read and its size.
   const reframing = needsReframe(rounds, fixing, depth);
@@ -274,6 +282,11 @@ export function enforce(a: Assessment, rounds: number, app: App | undefined, fix
   if (app && app.mode === "proposal" && out.tier === "small") {
     out.tier = "bigger";
     out.bigger_reasons.push(`${app.name} takes proposals only`);
+  }
+  // The newer apps are built only once Jamie has approved what the app is for (its app card), 24 Nov 2026.
+  if (app && app.mode === "build_jamie" && !hasCard && out.tier === "small") {
+    out.tier = "bigger";
+    out.bigger_reasons.push(`${app.name} has no approved app card yet`);
   }
   // A clash with another request is never settled by whoever asked last: both go to Jamie (Jamie, 24 Nov 2026).
   if (out.related.kind && !out.related.ts.trim()) out.related = { kind: "", ts: "", why: "" };

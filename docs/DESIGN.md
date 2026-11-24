@@ -26,13 +26,18 @@ change it here the same day (rule 7).
 - **Small** fixes are built automatically on Team Dashboard, Overtime, What's new and Inventory dashboard.
 - **Bigger** requests become proposals only: anything new; deal money, payments or invoices; customer emails;
   Rentman writes or more Rentman calls; HubSpot or Xero writes; logins and who can see what; new scheduled jobs;
-  deleting data; anything on Client portal, Website, Kit onboarding (including the Onboarding section of the
-  inventory dashboard), Consignor portal or this app; any contradiction.
+  deleting data; anything on this app; any contradiction.
+- **Built, Jamie checks** (Jamie, 24 Nov 2026): on Client portal, Website, Kit onboarding (including the Onboarding
+  section of the inventory dashboard) and Consignor portal, small wording, layout or display fixes are built and
+  Jamie (not Sam) approves the finished change. Anything that changes what those apps do, store or send is bigger.
+  Each app switches on only once its approved `## App card` is in its `docs/DESIGN.md` and it has the build
+  workflow; until then its requests stay proposals ("no approved app card yet").
 - **Not offered:** Cloud Function, Gmail connector, Rentman core, Status dashboard.
-- Safety net: a "small" build that turns out to touch a bigger area stops and becomes a proposal.
+- Safety net: a "small" build that turns out to touch a bigger area stops and becomes a proposal (on every tier).
 
 ## Approvals
-- Sam approves small fixes, including his own. Jamie approves bigger ones and contradictions.
+- Sam approves small fixes, including his own, except on the "built, Jamie checks" apps, where Jamie does.
+  Jamie approves bigger ones and contradictions.
 - When Jamie taps "Build it" on a proposal, the finished change comes back to Jamie, not Sam.
 - "Build it" is Jamie's go-ahead for the reasons the proposal named (for example extra Rentman calls); the builder
   doesn't stop for those. If it stops for something else, Jamie gets a "Couldn't build" message once, never the same

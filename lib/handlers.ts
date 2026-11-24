@@ -41,7 +41,7 @@ import {
   threadLines,
   type Loaded,
 } from "./actions";
-import { enforce, missingNeeds, notesBlock, othersBlock, principlesBlock, transcript, turnPrompt, type Assessment, type Depth, type Other } from "./prompt";
+import { enforce, hasAppCard, missingNeeds, notesBlock, othersBlock, principlesBlock, transcript, turnPrompt, type Assessment, type Depth, type Other } from "./prompt";
 import { approvalMeta, cardMeta, decodeRef, encodeRef, newCard, reopensOnReply } from "./records";
 import { grillFromMessage, grillReply, grillRequest } from "./grill/handlers";
 import { report } from "./report";
@@ -102,11 +102,11 @@ async function images(l: Loaded): Promise<Image[]> {
   return out;
 }
 
-async function notesFor(appKey: string): Promise<string> {
+async function notesFor(appKey: string): Promise<{ block: string; card: boolean }> {
   const app = appByKey(appKey);
-  if (!app) return notesBlock(undefined, []);
+  if (!app) return { block: notesBlock(undefined, []), card: false };
   const notes = await Promise.all(NOTES_FILES.map(async (path) => ({ path, text: await fileNow(app.repo, path) })));
-  return notesBlock(app, notes);
+  return { block: notesBlock(app, notes), card: hasAppCard(notes.find((n) => n.path === "docs/DESIGN.md")?.text ?? null) };
 }
 
 /**
@@ -136,7 +136,14 @@ export async function turn(l: Loaded, now = Date.now(), reading = ""): Promise<v
     const pics = await images(l);
     const depth: Depth = { reframed: l.card.reframed, scope: l.card.scope, gate: l.card.gate };
     const others = [principlesBlock(await fileNow("fomo-app-requests", PRINCIPLES_FILE).catch((e) => (report(e, "principles.read"), null))), othersBlock(await otherRequests(l, now))].filter(Boolean).join("\n\n");
-    const run = async (appKey: string) => assess({ notes: `${await notesFor(appKey)}\n\n${others}`, thread, turn: turnPrompt(l.card.round, appKey, l.card.fixing, depth), images: pics });
+    let card = false; // whether the app whose notes were read last has an approved app card
+    let cardFor = "";
+    const run = async (appKey: string) => {
+      const n = await notesFor(appKey);
+      card = n.card;
+      cardFor = appKey;
+      return assess({ notes: `${n.block}\n\n${others}`, thread, turn: turnPrompt(l.card.round, appKey, l.card.fixing, depth), images: pics });
+    };
     let a: Assessment = await run(l.card.app);
     // First time the app is known: read again, this time with that app's design notes.
     if (appByKey(a.app) && a.app !== l.card.app) {
@@ -145,7 +152,7 @@ export async function turn(l: Loaded, now = Date.now(), reading = ""): Promise<v
       if (appByKey(a.app)) l.card.app = a.app;
     }
     const app = appByKey(l.card.app);
-    a = enforce(a, l.card.round, app, l.card.fixing, depth);
+    a = enforce(a, l.card.round, app, l.card.fixing, depth, card && cardFor === l.card.app);
     await act(l, a, now, reading);
   } catch (err) {
     report(err, "turn", { thread: l.thread });
@@ -523,9 +530,9 @@ export async function handleInteraction(p: any): Promise<object | null> {
 async function confirmed(l: Loaded): Promise<void> {
   const app = appOf(l);
   const now = Date.now();
-  if (l.card.tier === "small" && app.mode === "build") {
+  if (l.card.tier === "small" && (app.mode === "build" || app.mode === "build_jamie")) {
     const running = buildsRunning(await allRequests(l.channel, now));
-    await startBuild(l, "sam", running, now);
+    await startBuild(l, app.mode === "build_jamie" ? "jamie" : "sam", running, now);
     return;
   }
   await sendProposal(l);
@@ -722,7 +729,7 @@ export async function handleBuildReport(r: BuildReport, now = Date.now()): Promi
     );
     Object.assign(l.card, { stage: "approval", pr: r.pr, prUrl: r.prUrl, preview: r.preview ?? "", approvalChannel: d.channel, approvalTs: d.ts, pendingSince: now, reminded: false });
     await save(l); // the status line now says "Waiting for <approver>", with the preview: no message (Jamie, 24 Nov 2026)
-  } else if (r.outcome === "bigger" && l.card.approver !== "jamie") {
+  } else if (r.outcome === "bigger" && l.card.tier === "small") {
     // Only for a small fix: a build Jamie already said yes to never goes back to him as a proposal (it looped, 19 Nov 2026).
     // Safety net (design): a "small" build that turns out to touch a Bigger area stops and becomes a proposal.
     await closeIssue(appOf(l).repo, r.issue, "not_planned").catch((e) => report(e, "bigger.close_issue"));
