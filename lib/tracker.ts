@@ -1,5 +1,5 @@
 /**
- * The Request tracker (Jamie, 23 Nov 2026): one row per request, grouped by who it's waiting on, in the
+ * The Request tracker (Jamie, 23 Nov 2026): one row per request in one table, sorted by who it's waiting on, in the
  * #app-requests channel canvas (the tab at the top of the channel). Jamie asked for it after Friday 20 Nov,
  * when requests came in faster than he could follow from away from his desk.
  *
@@ -24,13 +24,14 @@ export const MARKER = "Kept up to date by the App requests bot";
 
 export type Group = "jamie" | "sam" | "requester" | "bot" | "failed" | "done";
 
-export const GROUPS: { key: Group; heading: string }[] = [
-  { key: "jamie", heading: ":raising_hand: Waiting on Jamie" },
-  { key: "sam", heading: ":eyes: Waiting on Sam" },
-  { key: "requester", heading: ":speech_balloon: Waiting on the person who asked" },
-  { key: "bot", heading: ":gear: Bot working on it" },
-  { key: "failed", heading: ":x: Failed" },
-  { key: "done", heading: `:white_check_mark: Done in the last ${DONE_DAYS} days` },
+/** In this order on the one table (Jamie 24 Nov 2026: one table, not one per group). */
+export const GROUPS: { key: Group; label: string }[] = [
+  { key: "jamie", label: ":raising_hand: Jamie" },
+  { key: "sam", label: ":eyes: Sam" },
+  { key: "requester", label: ":speech_balloon: Who asked" },
+  { key: "bot", label: ":gear: Bot" },
+  { key: "failed", label: ":x: Failed" },
+  { key: "done", label: ":white_check_mark: Done" },
 ];
 
 export type Row = {
@@ -164,21 +165,32 @@ function links(r: Row): string {
   return out.join(" · ");
 }
 
-/** The whole canvas. Pure, tested. Newest first within each group; empty groups are left out. */
+/** The whole canvas: one table, sorted by who it's waiting on (Jamie first), newest first within each. Pure, tested. */
 export function trackerMarkdown(rows: Row[], now: number): string {
   const shown = rows.filter((r) => groupOf(r.card) !== "done" || now - r.lastAt <= DONE_DAYS * DAY);
+  const order = (r: Row) => GROUPS.findIndex((g) => g.key === groupOf(r.card));
+  shown.sort((a, b) => order(a) - order(b) || b.askedAt - a.askedAt);
+  const counts = GROUPS.map((g) => ({ g, n: shown.filter((r) => groupOf(r.card) === g.key).length })).filter((x) => x.n);
   const out: string[] = [
-    `${MARKER} whenever a request moves on. Last change ${shortDate(now)}, ${londonTime(now)} London time. Requests from the last 30 days; tap Thread to open one.`,
+    `${MARKER} whenever a request moves on. Last change ${shortDate(now)}, ${londonTime(now)} London time. Requests from the last 30 days (finished ones for ${DONE_DAYS} days); tap Thread to open one.`,
   ];
-  for (const g of GROUPS) {
-    const inGroup = shown.filter((r) => groupOf(r.card) === g.key).sort((a, b) => b.askedAt - a.askedAt);
-    if (!inGroup.length) continue;
-    out.push("", `## ${g.heading} (${inGroup.length})`, "", "|Request|Asked by|App|Asked|Status|Links|", "|---|---|---|---|---|---|");
-    for (const r of inGroup)
-      out.push(`|${cell(r.title)}|${cell(r.who)}|${cell(r.app) || "–"}|${shortDate(r.askedAt)}|${cell(statusOf(r.card))}|${links(r)}|`);
+  if (!shown.length) {
+    out.push("", "No requests yet. Ask for a change by posting in the channel.");
+    return out.join("\n");
   }
-  if (!shown.length) out.push("", "No requests yet. Ask for a change by posting in the channel.");
+  out.push("", counts.map((x) => `${x.g.label} ${x.n}`).join(" · "));
+  out.push("", "|Waiting on|Request|Asked by|App|Asked|Status|Links|", "|---|---|---|---|---|---|---|");
+  for (const r of shown) {
+    const label = GROUPS[order(r)].label;
+    out.push(`|${label}|${cell(r.title)}|${cell(r.who)}|${cell(r.app) || "–"}|${shortDate(r.askedAt)}|${cell(statusOf(r.card))}|${links(r)}|`);
+  }
   return out.join("\n");
+}
+
+/** True when the request's own post was deleted (Slack leaves a "This message was deleted." placeholder). Pure. */
+export function isDeleted(first: { subtype?: string; text?: string } | undefined): boolean {
+  if (!first) return true;
+  return first.subtype === "tombstone" || first.text?.trim() === "This message was deleted.";
 }
 
 // ---------- Slack side ----------
@@ -202,8 +214,9 @@ export async function refreshTracker(all?: Loaded[], now = Date.now()): Promise<
     const names = new Map<string, string>();
     const rows: Row[] = [];
     for (const l of requests) {
-      if (!names.has(l.card.requester)) names.set(l.card.requester, await nameOf(l.card.requester));
       const first = l.messages.find((m) => m.ts === l.thread);
+      if (isDeleted(first)) continue; // the person deleted their request: nothing to track
+      if (!names.has(l.card.requester)) names.set(l.card.requester, await nameOf(l.card.requester));
       const last = l.messages.reduce((t, m) => Math.max(t, Number(m.ts) * 1000), Number(l.thread) * 1000);
       rows.push({
         title: titleOf(l.card, first?.text ?? ""),

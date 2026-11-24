@@ -83,8 +83,10 @@ change it here the same day (rule 7).
 - After Friday 20 Nov, when requests came in faster than Jamie could follow away from his desk: #app-requests has a
   **Request tracker** tab (the channel canvas), one row per request: what was asked, who asked, which app, the date,
   the status in plain English and links (thread, preview, PR).
-- Grouped by who it's waiting on, in this order: Jamie, Sam, the person who asked, the bot working on it, failed, and
-  done in the last 14 days. Requests from the last 30 days, the same window the bot already reads.
+- One table (Jamie, 24 Nov 2026: a table per group looked messy), with a "Waiting on" column, sorted in this order:
+  Jamie, Sam, the person who asked, the bot working on it, failed, and done in the last 14 days; newest first within
+  each. A line above it counts each. Requests from the last 30 days, the same window the bot already reads.
+- A request whose post was deleted is left off (Jamie, 24 Nov 2026): there is nothing left to track.
 - Chosen over a Slack List: a List can be edited by hand and drift from what the bot knows. The canvas is redrawn
   whole from the requests' cards, so the threads stay the single source of truth.
 - Event driven: it is redrawn whenever a request moves on. No new scheduled job; the existing 15-minute tick also
