@@ -249,6 +249,11 @@ Spec: project file `website-listings/website-listing-tool-spec.md`.
   meeting with Louis and Rosie.
 - **The spec goes to Jamie only**: a Slack DM with the .md attached, and a copy in this repo's `specs/`. It never goes
   into the build queue; Jamie reviews it with Claude and it gets built from there.
+- **Claude reviews each spec automatically** (Jamie, 24 Nov 2026): a scheduled Claude check in Jamie's FOMO Apps
+  Claude project runs every weekday at 08:47 SA time, reads any new file in `specs/`, and gives each one its own review
+  thread there. The review only reads (code, Rentman, Slack, HubSpot, other work in flight) and ends with
+  go / change this / don't build. Nothing is built until Jamie says so. The bot itself is unchanged apart from the DM
+  wording; `specs/` is the hand-off, so a spec must keep being saved there.
 - **"/grill idea" typed as an ordinary message** in #app-requests also starts a grill, in Sam's own thread (23 Nov 2026:
   Sam's first one arrived as text, before `/grill` was installed in Slack, and the normal request flow asked him 3
   questions). A thread like that which the request flow already took becomes a grill on Sam's next reply there; the

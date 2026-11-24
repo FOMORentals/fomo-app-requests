@@ -381,7 +381,7 @@ async function sendToJamie(name: string, spec: { title: string; apps: string; st
     `*Started as:* ${spec.started_as}`,
     `*Ended as:* ${spec.ended_as}`,
     `*App:* ${spec.apps} · <${link}|Slack thread> · <${saved.url}|Saved in GitHub>`,
-    "Not in the build queue. Bring it to Claude to review, and it gets built from there.",
+    "Not in the build queue. Claude reviews new specs every weekday at 08:47 (SA time) and reports go / change this / don't build in the FOMO Apps project. Nothing gets built until you say so.",
   ].join("\n");
   const { channel } = await dm(OWNER_EMAIL, head, [{ type: "section", text: { type: "mrkdwn", text: clip(head, 2900) } }]);
   const bytes = Buffer.from(spec.markdown, "utf8");
