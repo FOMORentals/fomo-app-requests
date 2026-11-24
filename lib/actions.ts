@@ -1,6 +1,7 @@
 /** Side effects shared by the handlers and the cron: load and save a request, read its thread, start a build. */
+import { report } from "./report";
 import { cardBlocks, type Block } from "./blocks";
-import { APPROVER_EMAIL, MAX_BUILDS, OWNER_EMAIL, PEOPLE, appByKey, type App } from "./config";
+import { APPROVER_EMAIL, MAX_BUILDS, OWNER_EMAIL, PEOPLE, PRINCIPLES_FILE, appByKey, type App } from "./config";
 import { fileNow, openBuildIssue } from "./github";
 import { issueBody, issueTitle } from "./issue";
 import type { Line } from "./prompt";
@@ -128,6 +129,8 @@ export async function startBuild(l: Loaded, approver: "sam" | "jamie", running: 
   }
   const rules = (await fileNow("fomo-app-requests", "rules/FOMO-ENGINEERING-RULES.md")) ?? "";
   if (!rules) throw new Error("rules/FOMO-ENGINEERING-RULES.md is missing from fomo-app-requests");
+  // Jamie's app principles go to the builder too, once he has approved them (24 Nov 2026).
+  const principles = (await fileNow("fomo-app-requests", PRINCIPLES_FILE).catch((e) => (report(e, "principles.read"), null))) ?? "";
   const body = issueBody({
     app,
     card: l.card,
@@ -137,7 +140,7 @@ export async function startBuild(l: Loaded, approver: "sam" | "jamie", running: 
     thread: transcript(await threadLines(l)),
     channel: l.channel,
     threadTs: l.thread,
-    rules,
+    rules: principles.trim() ? `${rules}\n\n${principles.trim()}` : rules,
     jamieApproved: approver === "jamie",
     today: londonDate(now),
   });

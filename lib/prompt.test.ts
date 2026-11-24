@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appByKey, MAX_ROUNDS } from "./config";
-import { enforce, othersBlock, RULES, transcript, type Assessment } from "./prompt";
+import { enforce, hasAppCard, othersBlock, principlesBlock, RULES, transcript, type Assessment } from "./prompt";
 import { relatedText } from "./blocks";
 
 const base: Assessment = {
@@ -127,4 +127,15 @@ test("a clash with another request goes to Jamie; a repeat is only pointed out (
   assert.match(othersBlock([]), /none/);
   assert.match(relatedText("clash", "Rosie asked to sort by client", "https://x"), /pulls against <https:\/\/x\|another request>/);
   assert.equal(relatedText("", "", ""), "");
+});
+
+test("Jamie's principles and each app's card are given to Claude when they exist (24 Nov 2026)", () => {
+  assert.equal(principlesBlock(null), "");
+  assert.equal(principlesBlock("  "), "");
+  assert.match(principlesBlock("1. Start from the outcome."), /FOMO APP PRINCIPLES[\s\S]*Start from the outcome/);
+  assert.equal(hasAppCard("# Team Dashboard: design decisions\n\n## App card\n- For: ..."), true);
+  assert.equal(hasAppCard("# Client portal\n\n## Who sees what"), false);
+  assert.equal(hasAppCard(null), false);
+  assert.match(RULES, /must never do, treat that as a contradiction/);
+  assert.match(RULES, /offer the better version as the suggested answer/);
 });

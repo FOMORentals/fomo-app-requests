@@ -22,7 +22,7 @@ import {
   type Built,
   type Verdict,
 } from "./blocks";
-import { APPROVER_EMAIL, MAX_CATCH_UPS, MAX_LOOKS, NOTES_FILES, OWNER_EMAIL, appByKey, canLookInto, personByEmail } from "./config";
+import { APPROVER_EMAIL, MAX_CATCH_UPS, MAX_LOOKS, NOTES_FILES, OWNER_EMAIL, PRINCIPLES_FILE, appByKey, canLookInto, personByEmail } from "./config";
 import { assess, type Image } from "./claude";
 import { closeIssue, closePr, fileNow, mergePr, openQuestionIssue, overlapSinceBuilt, rebuild } from "./github";
 import { questionIssueBody, questionIssueTitle } from "./issue";
@@ -41,7 +41,7 @@ import {
   threadLines,
   type Loaded,
 } from "./actions";
-import { enforce, missingNeeds, notesBlock, othersBlock, transcript, turnPrompt, type Assessment, type Depth, type Other } from "./prompt";
+import { enforce, missingNeeds, notesBlock, othersBlock, principlesBlock, transcript, turnPrompt, type Assessment, type Depth, type Other } from "./prompt";
 import { approvalMeta, cardMeta, decodeRef, encodeRef, newCard, reopensOnReply } from "./records";
 import { grillFromMessage, grillReply, grillRequest } from "./grill/handlers";
 import { report } from "./report";
@@ -135,7 +135,7 @@ export async function turn(l: Loaded, now = Date.now(), reading = ""): Promise<v
     const thread = transcript(await threadLines(l));
     const pics = await images(l);
     const depth: Depth = { reframed: l.card.reframed, scope: l.card.scope, gate: l.card.gate };
-    const others = othersBlock(await otherRequests(l, now));
+    const others = [principlesBlock(await fileNow("fomo-app-requests", PRINCIPLES_FILE).catch((e) => (report(e, "principles.read"), null))), othersBlock(await otherRequests(l, now))].filter(Boolean).join("\n\n");
     const run = async (appKey: string) => assess({ notes: `${await notesFor(appKey)}\n\n${others}`, thread, turn: turnPrompt(l.card.round, appKey, l.card.fixing, depth), images: pics });
     let a: Assessment = await run(l.card.app);
     // First time the app is known: read again, this time with that app's design notes.
