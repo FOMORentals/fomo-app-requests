@@ -87,6 +87,7 @@ export type Card = {
   gateDmTs: string;
   // Done elsewhere, spotted by the bot (Jamie, 24 Nov 2026).
   elsewhereSeen: number; // the newest merged pull request already checked against this request
+  elsewhereMsg: string; // the newest of Jamie's thread replies already checked ("it's done/sorted" counts too)
   undo: string; // JSON of what the bot changed when it marked this done itself, so Undo can put it back; "" otherwise
   undoTs: string; // the bot's "looks done" message in the thread, with the Undo button
 };
@@ -140,6 +141,7 @@ export function newCard(requester: string): Card {
     gateDmChannel: "",
     gateDmTs: "",
     elsewhereSeen: 0,
+    elsewhereMsg: "",
     undo: "",
     undoTs: "",
   };

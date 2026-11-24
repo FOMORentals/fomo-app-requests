@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isCandidate, markDone, undoDone, unchecked, type MergedPr } from "./elsewhere";
+import { isCandidate, markDone, newOwnerReplies, undoDone, unchecked, type MergedPr } from "./elsewhere";
 import { cardMeta, newCard, readCard, type Card, type Stage } from "./records";
 
 const ASKED = Date.parse("2026-11-20T10:00:00Z");
@@ -29,7 +29,7 @@ test("only pull requests merged after the request, not yet checked and not the b
 
 test("marking done can be undone exactly, and survives being saved on the card", () => {
   const c = card("failed", { summary: { title: "In-house prep", now: "", should: "", who: "", done: "", plan: "" }, note: "needed the field ID", prUrl: "" });
-  markDone(c, pr(175, ASKED + 1000), "shows In-house prep jobs on Kit Prep");
+  markDone(c, pr(175, ASKED + 1000), "shows In-house prep jobs on Kit Prep", ASKED + 5000);
   assert.equal(c.stage, "live");
   assert.match(c.prUrl, /pull\/175$/);
   assert.match(c.note, /#175: shows In-house prep/);
@@ -44,6 +44,30 @@ test("marking done can be undone exactly, and survives being saved on the card",
 
 test("a question (no summary) is marked answered, not live", () => {
   const c = card("handed");
-  markDone(c, pr(175, ASKED + 1000), "");
+  markDone(c, pr(175, ASKED + 1000), "", ASKED);
   assert.equal(c.stage, "answered");
+});
+
+test("Jamie saying it's sorted, with no pull request, marks it done and keeps the old PR link", () => {
+  const c = card("handed", { summary: { title: "Cross-hire supplier", now: "", should: "", who: "", done: "", plan: "" }, prUrl: "" });
+  markDone(c, null, "it was the sync timing", ASKED + 9000);
+  assert.equal(c.stage, "live");
+  assert.equal(c.prUrl, "");
+  assert.equal(c.mergedAt, ASKED + 9000);
+  assert.match(c.note, /Jamie said in the thread it's sorted: it was the sync timing/);
+});
+
+test("only Jamie's replies since the last check count", () => {
+  const l = {
+    thread: "100.0",
+    card: card("handed", { elsewhereMsg: "200.0" }),
+    messages: [
+      { ts: "100.0", user: "UJ" },
+      { ts: "150.0", user: "UJ" },
+      { ts: "250.0", user: "UW" },
+      { ts: "300.0", user: "UJ" },
+    ],
+  };
+  assert.deepEqual(newOwnerReplies(l, "UJ"), ["300.0"]);
+  assert.deepEqual(newOwnerReplies({ ...l, card: card("handed") }, "UJ"), ["150.0", "300.0"]);
 });
