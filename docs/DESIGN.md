@@ -285,3 +285,15 @@ One front door: everyone posts in #app-requests as usual; Sam's `/grill` still g
   than it looked, rebuilt on top of another change, a person's comment).
 - Built in `lib/prompt.ts` (`reframe`, `step_up`, `enforce`), `lib/handlers.ts` (buttons) and `lib/grill/`
   (`grillRequest`: the interviewee is whoever asked). The tracker shows "Bigger idea: Sam to say full grill?" under Sam.
+
+## Side conversations (Jamie, 24 Nov 2026)
+Jamie: the bot kept joining in when people talked to each other in a request's thread (Rosie's quote 12812 question:
+after Jamie wrote "I'm checking this one now", Rosie's reply to him made the bot look into the app again).
+- **Once someone other than the requester joins the thread, the bot steps back.** The requester's later replies are left
+  to the people talking; the bot doesn't answer, ask or look again.
+- **It comes back when mentioned** (@App requests), by the requester or anyone on the team, or when someone taps one of
+  its buttons. Once it has posted again it carries on as usual until someone else joins in again.
+- The requester gets one note only they can see ("I've stepped back because Jamie has joined in…") on their first reply
+  after it steps back, so they know why it went quiet. Not repeated.
+- The tick (nudges, timeouts, Done detection) is unchanged. Chosen over "only answer @mentions" (more work for the team
+  on every request) and a "Leave it to me" button (one more tap; joining in already says it).

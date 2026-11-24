@@ -12,11 +12,25 @@ import { londonDate } from "./time";
 
 export type Loaded = { channel: string; thread: string; cardTs: string; card: Card; messages: SlackMessage[] };
 
-let botIdCache: string | null = null;
+let botCache: { bot_id: string; user_id: string } | null = null;
+
+async function whoAmI(): Promise<{ bot_id: string; user_id: string }> {
+  botCache ??= await slack<{ bot_id: string; user_id: string }>("auth.test", {});
+  return botCache;
+}
 
 export async function botId(): Promise<string> {
-  botIdCache ??= (await slack<{ bot_id: string }>("auth.test", {})).bot_id;
-  return botIdCache;
+  return (await whoAmI()).bot_id;
+}
+
+/** The bot's own Slack user id, for spotting an @mention of it. */
+export async function botUserId(): Promise<string> {
+  return (await whoAmI()).user_id;
+}
+
+/** A message only `user` sees, in the thread. */
+export async function postEphemeral(channel: string, thread: string, user: string, text: string): Promise<void> {
+  await slack("chat.postEphemeral", { channel, thread_ts: thread, user, text });
 }
 
 /** A request: its thread and its status card (the bot's message carrying the request's data). */
