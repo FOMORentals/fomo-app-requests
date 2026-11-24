@@ -6,13 +6,17 @@
  * 4. Builds that never reported back are marked failed (rule 1). So are looks into the code (questions) after 45 minutes.
  * 5. Merged changes: checks the live deploy actually happened before saying "Live" (rule 5).
  * 6. Gives cards drawn before the "Done elsewhere" button existed the button (once).
- * 7. Redraws the Request tracker tab from the requests it has just read (no extra thread reads). This catches up
+ * 7. Requests finished outside the bot: if a pull request merged into the app clearly did one waiting on Jamie or
+ *    failed, marks it done with an Undo button (lib/elsewhere.ts, Jamie 24 Nov 2026). At most 2 Claude calls a run,
+ *    only when there's time left in the budget.
+ * 8. Redraws the Request tracker tab from the requests it has just read (no extra thread reads). This catches up
  *    after a redraw that failed when a request moved on, and moves finished requests off after 14 days.
  * Runs at most 60 s (maxDuration) against a 15-minute interval, so two runs can't overlap and no lock is needed.
  * It stops itself at 50 s and logs INCOMPLETE (rule 2). One failure doesn't stop the rest; failures are counted (rule 1).
  */
 import { allRequests, appOf, buildsRunning, dm, link, postInThread, save, startBuild, type Loaded } from "./actions";
 import { DONE_ELSEWHERE_FROM } from "./blocks";
+import { checkDoneElsewhere } from "./elsewhere";
 import { APPROVER_EMAIL, OWNER_EMAIL } from "./config";
 import { productionDeploy } from "./github";
 import { refreshTracker } from "./tracker";
@@ -25,7 +29,7 @@ const LOOK_TIMEOUT = 45 * 60_000;
 const DEPLOY_WARN = 45 * 60_000;
 const BUDGET = 50_000;
 
-export type TickResult = { nudged: number; closed: number; reminded: number; started: number; live: number; failures: number; incomplete: boolean };
+export type TickResult = { nudged: number; closed: number; reminded: number; started: number; live: number; doneElsewhere: number; failures: number; incomplete: boolean };
 
 /** A card waiting on Jamie that was drawn without the "Done elsewhere" button. Pure, tested. */
 export function needsDoneButton(l: Loaded): boolean {
@@ -51,7 +55,7 @@ export function due(l: Loaded, now: number): "nudge" | "close" | "remind" | "sta
 }
 
 export async function runTick(now = Date.now()): Promise<TickResult> {
-  const r: TickResult = { nudged: 0, closed: 0, reminded: 0, started: 0, live: 0, failures: 0, incomplete: false };
+  const r: TickResult = { nudged: 0, closed: 0, reminded: 0, started: 0, live: 0, doneElsewhere: 0, failures: 0, incomplete: false };
   const all = await allRequests(channel(), now);
   let running = buildsRunning(all);
   for (const l of all) {
@@ -143,6 +147,11 @@ export async function runTick(now = Date.now()): Promise<TickResult> {
       }
     }
   }
+  // Leaves at least 20 s of the budget for the tracker redraw.
+  r.doneElsewhere = await checkDoneElsewhere(all, () => !r.incomplete && Date.now() - now < BUDGET - 20_000, (err, l) => {
+    r.failures++;
+    report(err, "tick.done_elsewhere", { thread: l.thread, app: l.card.app });
+  });
   if (!(await refreshTracker(all, now))) r.failures++;
   return r;
 }

@@ -15,6 +15,7 @@ Setup: `docs/SETUP.md`.
 - `lib/handlers.ts` Slack messages, buttons, forms, build reports. `lib/actions.ts` side effects.
 - `lib/tick.ts` the 15-minute cron (nudges, reminders, queued builds, timeouts, live checks).
 - `lib/tracker.ts` the Request tracker tab (the channel canvas), redrawn whenever a request's card is saved.
+- `lib/elsewhere.ts` spots requests finished outside the bot (a merged pull request does it) and marks them done, with Undo.
 - `lib/records.ts` the request's state, stored as metadata on the bot's card in the thread (Slack is the database).
 - `templates/` the workflows copied into each app repo: `app-request-build.yml` (the build robot),
   `app-question.yml` (looks into a question, read only, reports to `/api/question/callback`) and

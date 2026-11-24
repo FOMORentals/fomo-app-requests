@@ -85,6 +85,10 @@ export type Card = {
   gateTs: string; // Sam's buttons in the thread
   gateDmChannel: string;
   gateDmTs: string;
+  // Done elsewhere, spotted by the bot (Jamie, 24 Nov 2026).
+  elsewhereSeen: number; // the newest merged pull request already checked against this request
+  undo: string; // JSON of what the bot changed when it marked this done itself, so Undo can put it back; "" otherwise
+  undoTs: string; // the bot's "looks done" message in the thread, with the Undo button
 };
 
 export type Scope = "" | "quick_fix" | "change" | "new_idea";
@@ -135,10 +139,13 @@ export function newCard(requester: string): Card {
     gateTs: "",
     gateDmChannel: "",
     gateDmTs: "",
+    elsewhereSeen: 0,
+    undo: "",
+    undoTs: "",
   };
 }
 
-const NUMS = ["round", "askedAt", "issue", "pr", "pendingSince", "startedAt", "mergedAt", "catchUps", "looks", "lookIssue", "lookedAt"] as const;
+const NUMS = ["round", "askedAt", "issue", "pr", "pendingSince", "startedAt", "mergedAt", "catchUps", "looks", "lookIssue", "lookedAt", "elsewhereSeen"] as const;
 const BOOLS = ["nudged", "noDecision", "reminded", "fixing", "reframed"] as const;
 const JSONS = ["summary", "needs"] as const;
 
