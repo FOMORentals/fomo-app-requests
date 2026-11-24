@@ -4,6 +4,16 @@ Designed with Jamie on 17 Nov 2026 (19 questions, all agreed). The longer write-
 https://claude.ai/artifact/XzyLQLrNgBUjrEndwLt6nQ. Keep this file current: when a decision changes,
 change it here the same day (rule 7).
 
+## App card
+Approved by Jamie, 24 Nov 2026. #app-requests uses this card to tell which app a request belongs to; a request
+for something under "Must never" goes against Jamie's decision, so it goes to Jamie as a proposal. Change it
+only with Jamie's OK, in the same pull request as the change.
+
+- **What it's for:** This channel: requests, questions, grills, the Start here tab.
+- **Who uses it:** The whole team.
+- **Must never:** Build or ship without Sam's or Jamie's tap; settle a clash between two people's requests.
+- **Belongs elsewhere:** Website listings (/list-kit, its own channel).
+
 ## Who and where
 - Requests go in Slack **#app-requests**. Threads are visible to the whole channel.
 - Only Sam, Louis, Rosie, Will, Margarita and Jamie can request (`lib/config.ts`). Anyone else is told to ask Jamie.
