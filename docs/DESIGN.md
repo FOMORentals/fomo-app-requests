@@ -27,12 +27,12 @@ change it here the same day (rule 7).
 - **Bigger** requests become proposals only: anything new; deal money, payments or invoices; customer emails;
   Rentman writes or more Rentman calls; HubSpot or Xero writes; logins and who can see what; new scheduled jobs;
   deleting data; anything on this app; any contradiction.
-- **Built, Jamie checks** (Jamie, 24 Nov 2026): on Client portal, Website, Kit onboarding (including the Onboarding
-  section of the inventory dashboard) and Consignor portal, small wording, layout or display fixes are built and
-  Jamie (not Sam) approves the finished change. Anything that changes what those apps do, store or send is bigger.
+- **Built, Jamie checks** (Jamie, 24 Nov 2026): on Client portal, Website and Consignor portal, small wording, layout or
+  display fixes are built and Jamie (not Sam) approves the finished change. Anything that changes what those apps do, store or send is bigger.
   Each app switches on only once its approved `## App card` is in its `docs/DESIGN.md` and it has the build
   workflow; until then its requests stay proposals ("no approved app card yet").
-- **Not offered:** Cloud Function, Gmail connector, Rentman core, Status dashboard.
+- **Not offered:** Cloud Function, Gmail connector, Rentman core, Status dashboard, and Kit onboarding (including
+  the Onboarding section of the inventory dashboard) while it's a work in progress (Jamie, 24 Nov 2026).
 - Safety net: a "small" build that turns out to touch a bigger area stops and becomes a proposal (on every tier).
 
 ## Approvals
@@ -79,8 +79,10 @@ practice, and it should know exactly what each app does and must never do.
 - **App cards**: an `## App card` section at the top of each app's `docs/DESIGN.md` (what it's for, who uses it, must
   never, belongs elsewhere). Claude uses it to place a request in the right app; a request that asks an app to do
   something its card says it must never do is a contradiction, so it goes to Jamie.
-- Drafts of both for Jamie to correct: https://claude.ai/artifact/WUBcGLWhLb1NZ8Pf6tb9Rv (24 Nov 2026). They take
-  effect when the approved text is committed: the principles file here, each card in its app's repo.
+- Jamie approved both on 24 Nov 2026 (https://claude.ai/artifact/WUBcGLWhLb1NZ8Pf6tb9Rv), with a "House style" section
+  in the principles file: only FOMO's own look and words; general design practice is left to Claude (Jamie asked
+  whether Claude needs UX rules: no, only what it can't guess). The "works on a phone in the warehouse" principle
+  was dropped (Jamie).
 
 ## Requests that repeat or clash (Jamie, 24 Nov 2026: "too many cooks spoil the broth")
 - Every turn, Claude also sees the other requests posted in #app-requests in the last 30 days (what each person first
@@ -158,8 +160,9 @@ practice, and it should know exactly what each app does and must never do.
 - **Fix it** turns the question into a normal request with the findings already in the thread: the same summary,
   ✅, small/bigger sorting and approvals as any other request. Nothing new skips Sam's or Jamie's tap.
 - Every app the team can ask about can be looked into (Jamie, 20 Nov 2026): Team Dashboard, Overtime, What's new,
-  Inventory dashboard, Client portal, Website, Kit onboarding, Consignor portal and App requests itself. Not
-  Cloud Function, Rentman core, Gmail connector or Status dashboard: those questions go to Jamie. On a
+  Inventory dashboard, Client portal, Website, Consignor portal and App requests itself. Not
+  Cloud Function, Rentman core, Gmail connector, Status dashboard or Kit onboarding (a work in progress, 24 Nov
+  2026): those questions go to Jamie. On a
   proposals-only app, Fix it becomes a proposal for Jamie as usual.
 - A question about the Team Dashboard also reads the Cloud Function's code, read only (Jamie, 20 Nov 2026, after
   the first real question, Spike Wright's job 12084 on Needs Ticket Link, came back "Couldn't tell" because the
