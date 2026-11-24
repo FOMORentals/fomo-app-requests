@@ -12,6 +12,7 @@
  */
 import { allRequests, cardsChanged, nameOf, type Loaded } from "./actions";
 import { appByKey } from "./config";
+import { howToMarkdown } from "./howto";
 import type { Card } from "./records";
 import { report } from "./report";
 import { channel as requestsChannel, messageLink, slack } from "./slack";
@@ -187,6 +188,14 @@ export function trackerMarkdown(rows: Row[], now: number): string {
   return out.join("\n");
 }
 
+/**
+ * The channel's one tab (Jamie, 24 Nov 2026): how #app-requests works on top, then the tracker. Redrawn whole each
+ * time, so the how-to is always the deployed bot's. Pure, tested.
+ */
+export function canvasMarkdown(rows: Row[], now: number): string {
+  return [howToMarkdown(), "", "---", "", "# What's in progress", "", trackerMarkdown(rows, now)].join("\n");
+}
+
 /** True when the request's own post was deleted (Slack leaves a "This message was deleted." placeholder). Pure. */
 export function isDeleted(first: { subtype?: string; text?: string } | undefined): boolean {
   if (!first) return true;
@@ -228,7 +237,7 @@ export async function refreshTracker(all?: Loaded[], now = Date.now()): Promise<
         threadUrl: await messageLink(ch, l.thread),
       });
     }
-    await writeCanvas(trackerMarkdown(rows, now));
+    await writeCanvas(canvasMarkdown(rows, now));
     return true;
   } catch (err) {
     report(err, "tracker.refresh");

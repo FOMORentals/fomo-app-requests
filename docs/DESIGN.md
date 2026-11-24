@@ -95,6 +95,14 @@ change it here the same day (rule 7).
 - The canvas is fixed by `TRACKER_CANVAS_ID` (in Vercel); the bot never creates one (23 Nov 2026: Slack didn't
   report the channel's canvas back, so the first version made a second canvas on its next redraw).
 
+- **One tab: "Start here"** (Jamie, 24 Nov 2026, tidy-up so the team isn't overwhelmed): the same canvas has a short
+  "How #app-requests works" on top and the tracker underneath ("What's in progress"). It replaces the hand-made
+  "How to ask for app changes" canvas, which had drifted (it said 3 questions and missed sizes, questions and grills).
+  The how-to is written by the bot from `lib/howto.ts` on every redraw, so a change to how the bot works reaches the
+  tab within 15 minutes of going live, with no GitHub Actions and no new job. Its numbers come from `lib/config.ts`;
+  its words are checked by a test that fails when what the team sees changes (`HOWTO_REVIEWED_FOR`). Jamie: no list of
+  apps, no `/list-kit` and no `/grill` on it. The canvas title is set by hand in Slack (setting it from the bot adds a
+  duplicate title line).
 - **Done elsewhere** (23 Nov 2026): when a request waiting on Jamie (passed to him, a proposal, or a failed build) was
   finished outside the bot, for example built directly in another thread, Jamie taps "Done elsewhere" on its status
   card and can add where (a PR link). It becomes Live (or Answered, for a question), nothing is built, a failed build's
