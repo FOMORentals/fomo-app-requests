@@ -7,8 +7,9 @@ Sam or Jamie. Principles steer requests; they don't block them.
 
 ## What a good change looks like
 
-1. **Start from the outcome.** Ask what the person is trying to get done, who for, and how often, before deciding
-   what to build. "Know which quotes to chase today" beats "an export of quotes".
+1. **Start from the problem, not the fix.** Ask what the person was trying to do, what got in the way, who it
+   affects and how often, before deciding what to build. "Every morning I can't tell which quotes need chasing"
+   beats "an export of quotes": the fix is worked out from the problem, not assumed in the request.
 2. **Change what exists before adding something new.** A column, a filter or a better default on a screen people
    already use beats a new screen, report or channel.
 3. **One home for each piece of information.** Rentman is the truth for kit and jobs, HubSpot for deals and
