@@ -1,4 +1,5 @@
 /** Slack events (new requests, replies), buttons and forms, and the builder's report back. */
+import { undoSpotted } from "./elsewhere";
 import {
   DONE_ELSEWHERE_FROM,
   answerBlocks,
@@ -424,6 +425,11 @@ export async function handleInteraction(p: any): Promise<object | null> {
         if (!u.isOwner) { await deny("Only Jamie can mark this as done elsewhere."); return null; }
         if (!DONE_ELSEWHERE_FROM.includes(l.card.stage)) return null;
         await modal("done_elsewhere", "Done elsewhere", "Where was it done? A pull request link or a few words. The person who asked will see this.", "Mark done", true);
+        return null;
+      case "undo_elsewhere":
+        // The bot marked this done itself after spotting a pull request (24 Nov 2026); Jamie, Sam or the requester can undo it.
+        if (u.id !== l.card.requester && !u.isOwner && !u.isApprover) { await deny("Only Jamie, Sam or the person who asked can undo this."); return null; }
+        await undoSpotted(l, u.id);
         return null;
       case "sam_comment":
         if (!u.isApprover && !u.isOwner) return null;

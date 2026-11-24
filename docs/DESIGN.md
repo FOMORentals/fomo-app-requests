@@ -99,6 +99,13 @@ change it here the same day (rule 7).
   finished outside the bot, for example built directly in another thread, Jamie taps "Done elsewhere" on its status
   card and can add where (a PR link). It becomes Live (or Answered, for a question), nothing is built, a failed build's
   issue is closed, the requester is told it's done, and the tracker updates. Only Jamie can use it.
+- **The bot spots it itself** (Jamie, 24 Nov 2026: "check whether the job has been done elsewhere itself"). On the
+  existing 15-minute tick (no new job), for each request waiting on Jamie or failed, it reads the pull requests merged
+  into that app since the request was asked and asks Claude whether one clearly does what was asked. If so, it marks the
+  request done and posts "this looks done… tap Undo if that's wrong" in the thread. Jamie, Sam or the requester can
+  Undo; that pull request is never matched to it again. Unsure means it's left alone (a wrong "done" is worse than a
+  missed one). It doesn't close GitHub issues or settle Jamie's DMs itself. At most 2 Claude calls a run, and only when
+  a new pull request has merged since the last check.
 
 ## "Why is the app doing this?" questions (Jamie, 20 Nov 2026)
 - The team can ask why an app behaves the way it does (something not refreshing as expected, a button not doing
