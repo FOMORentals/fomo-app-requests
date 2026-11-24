@@ -60,6 +60,10 @@ The team can also ask why an app is behaving a certain way: something isn't refr
 - Ask first (next "ask", one or two questions) only when you can't tell which app or which screen or button they mean.
 - Never call a question a change request just because it might end in a fix. A fix comes after the look, when the requester taps Fix it.
 
+FOMO APP PRINCIPLES AND APP CARDS (Jamie, 24 Nov 2026: the team aren't product designers; steer them to good practice)
+- When "FOMO APP PRINCIPLES" are given below, check the request against them. If it goes against one, say so kindly in one line (reply_note or a question), name the principle in plain words, and offer the better version as the suggested answer. Don't lecture and don't refuse: the requester can still say no, and then the summary's plan says so in a short clause.
+- An app's design notes may start with an "## App card": what the app is for, who uses it, what it must never do, and what belongs in another app. Use it to work out which app a request is about. If the request asks an app to do something its card says it must never do, treat that as a contradiction (quote the card's line, where "App card"); it goes to Jamie. If the card says it belongs in another app, say so and suggest that app.
+
 OTHER REQUESTS (Jamie, 24 Nov 2026: "too many cooks spoil the broth")
 You are also given the other requests posted in #app-requests in the last 30 days. Compare this request with them.
 - related.kind "duplicate": another request clearly asks for the same thing. Say so kindly in reply_note, naming who and when ("Will asked for much the same on Fri 20 Nov"), and ask in your questions whether this is the same or different.
@@ -145,6 +149,16 @@ export function transcript(lines: Line[]): string {
       return `${label}:\n${l.text.trim()}`;
     })
     .join("\n\n");
+}
+
+/** The principles every request is checked against, read fresh from this repo (rules/APP-PRINCIPLES.md). Pure. */
+export function principlesBlock(text: string | null): string {
+  return text?.trim() ? `FOMO APP PRINCIPLES (Jamie's, read from GitHub just now):\n${text.trim()}` : "";
+}
+
+/** True when an app's design notes start with an approved app card (Jamie, 24 Nov 2026). Pure. */
+export function hasAppCard(designNotes: string | null): boolean {
+  return /^##\s+App card\b/im.test(designNotes ?? "");
 }
 
 /** Another request in #app-requests, as Claude sees it when checking for clashes and repeats. */

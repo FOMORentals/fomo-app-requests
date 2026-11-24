@@ -63,6 +63,9 @@ export function appByKey(key: string | null | undefined): App | undefined {
   return APPS.find((a) => a.key === k);
 }
 
+/** Jamie's app principles (24 Nov 2026), read fresh from this repo at every request and given to every build. */
+export const PRINCIPLES_FILE = "rules/APP-PRINCIPLES.md";
+
 /** The files Claude reads, fresh from GitHub at every request, to check a request against Jamie's decisions. */
 export const NOTES_FILES = ["docs/DESIGN.md", "CLAUDE.md"];
 

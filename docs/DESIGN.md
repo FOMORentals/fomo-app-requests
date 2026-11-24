@@ -64,6 +64,19 @@ change it here the same day (rule 7).
 - If the live check for a merged change keeps erroring for 45 minutes, Jamie gets one DM saying why, instead of the error only reaching the logs.
 - Changes built side by side can't clash (Jamie, 19 Nov 2026: "as robust as possible"). When a change is approved, the bot checks whether another change to the same files went live after it was built. If so it isn't merged: it's rebuilt on top of the live version (the build robot merges the latest version in and Claude resolves any clash), and comes back for approval. Design notes and team-note pictures don't count as a clash (nearly every change edits them); if GitHub refuses the merge anyway, that also triggers the rebuild. At most twice, then it merges as it is. Chosen over a one-at-a-time queue, which would make a run of requests wait on each approval.
 
+## App principles and app cards (Jamie, 24 Nov 2026)
+Jamie: the team (and he) aren't product designers, so the bot should catch poor requests and push them towards good
+practice, and it should know exactly what each app does and must never do.
+- **FOMO app principles**: `rules/APP-PRINCIPLES.md` in this repo, Jamie's list. Read fresh from GitHub at every request
+  and given to every build with the engineering rules, so an edit to the file applies without a deploy. A request that
+  goes against one gets one kind line naming it and the better version as the suggested answer; the requester can still
+  say no (the plan then says so). Principles steer, they don't block. No file, no check.
+- **App cards**: an `## App card` section at the top of each app's `docs/DESIGN.md` (what it's for, who uses it, must
+  never, belongs elsewhere). Claude uses it to place a request in the right app; a request that asks an app to do
+  something its card says it must never do is a contradiction, so it goes to Jamie.
+- Drafts of both for Jamie to correct: https://claude.ai/artifact/WUBcGLWhLb1NZ8Pf6tb9Rv (24 Nov 2026). They take
+  effect when the approved text is committed: the principles file here, each card in its app's repo.
+
 ## Requests that repeat or clash (Jamie, 24 Nov 2026: "too many cooks spoil the broth")
 - Every turn, Claude also sees the other requests posted in #app-requests in the last 30 days (what each person first
   posted; one Slack call). Before, open requests were never compared with each other, only with recorded decisions.
