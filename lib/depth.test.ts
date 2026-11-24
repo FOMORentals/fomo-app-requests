@@ -1,7 +1,7 @@
 /** Right-sized grilling (Jamie, 23 Nov 2026): reframe first, size, Sam's gate, step up. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { gateBlocks, reframeBlocks, statusLine, stepUpBlocks } from "./blocks";
+import { cardBlocks, gateBlocks, questionBlocks, readingText, reframeBlocks, statusLine, stepUpBlocks, summaryBlocks } from "./blocks";
 import { appByKey } from "./config";
 import { interviewee, setting, specInstructions } from "./grill/prompt";
 import { REFRAMED, enforce, needsReframe, turnPrompt, type Assessment, type Depth } from "./prompt";
@@ -32,12 +32,39 @@ const a: Assessment = {
 const fresh: Depth = { reframed: false, scope: "", gate: "" };
 const dash = appByKey("dashboard");
 
-test("a new change request is reframed before any questions", () => {
+test("a new change request is reframed, with its first questions in the same message", () => {
   const out = enforce(a, 0, dash, false, fresh);
   assert.equal(out.next, "reframe");
-  assert.equal(out.questions.length, 0);
   assert.equal(out.reframe.scope, "change"); // a size is always given
+  assert.equal(out.questions.length, 2); // a change keeps its first questions (Jamie, 24 Nov 2026)
   assert.match(turnPrompt(0, "dashboard", false, fresh), /not confirmed yet/);
+  const quick = enforce({ ...a, reframe: { ...a.reframe, scope: "quick_fix" } }, 0, dash, false, fresh);
+  assert.equal(quick.questions.length, 1); // a quick fix: one at most
+  const big = enforce({ ...a, reframe: { ...a.reframe, scope: "new_idea" } }, 0, dash, false, fresh);
+  assert.equal(big.questions.length, 0); // a new idea is confirmed with a button before Sam is asked
+});
+
+test("the first message of a change is the reading plus the questions, with nothing to tap", () => {
+  const read = readingText({ after: "knowing which quotes to chase", exists: "", scope: "change", why: "a filter" });
+  const q = JSON.stringify(questionBlocks("U1", a, 1, read));
+  assert.match(q, /Here's how I read this/);
+  assert.match(q, /knowing which quotes to chase/);
+  assert.match(q, /misread you/);
+  assert.match(q, /1\.\* a/);
+  assert.doesNotMatch(q, /"actions"/);
+  const s = JSON.stringify(summaryBlocks("U1", { ...a, next: "summarise" }, dash!, "v", read));
+  assert.match(s, /Here's how I read this/);
+  assert.match(s, /Yes, build it/);
+  assert.match(JSON.stringify(summaryBlocks("U1", { ...a, tier: "bigger" }, dash!, "v")), /Yes, send it to Jamie/);
+});
+
+test("progress shows in the status line instead of new messages", () => {
+  assert.match(statusLine("queued"), /In the queue/);
+  assert.match(statusLine("building"), /\*Building\*/);
+  assert.match(statusLine("approval", "Sam"), /Waiting for Sam/);
+  assert.match(statusLine("deploying"), /Going live/);
+  const card = JSON.stringify(cardBlocks({ ...newCard("U1"), stage: "approval", approver: "sam", preview: "https://p", prUrl: "https://pr" }, dash));
+  assert.match(card, /Preview it/);
 });
 
 test("no reframe for why-questions, Fix it, or requests already under way", () => {
@@ -52,6 +79,7 @@ test("no reframe for why-questions, Fix it, or requests already under way", () =
 test("a quick fix gets one question at most", () => {
   assert.equal(enforce(a, 0, dash, false, { reframed: true, scope: "quick_fix", gate: "" }).questions.length, 1);
   assert.match(turnPrompt(0, "dashboard", false, { reframed: true, scope: "quick_fix", gate: "" }), /At most one question/);
+  assert.match(turnPrompt(1, "dashboard", false, { reframed: true, scope: "change", gate: "" }), /misread them, go with their correction/);
 });
 
 test("a confirmed change can step up, unless it was kept small", () => {

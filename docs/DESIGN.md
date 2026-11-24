@@ -216,5 +216,14 @@ One front door: everyone posts in #app-requests as usual; Sam's `/grill` still g
 - **Step up.** If the answers show a change is really a new idea (customer emails, a new screen, another system's
   data, a new routine), the bot says so and asks Sam as above; the requester can instead tap *Keep it small (…)*,
   which drops the part that made it big. A request kept small doesn't step up again.
+- **One message, one tap** (Jamie, 24 Nov 2026, tidy-up so the team isn't overwhelmed): for a quick fix or a change,
+  "Here's how I read this" and the first questions come in one message, with no "Yes, that's it" button; the
+  requester's reply confirms the reading or corrects it. A quick fix with nothing to ask goes straight to the summary,
+  with the reading at its top. Only a new idea keeps the "Yes, that's it" button, because Sam is asked next. The
+  requester's only tap is ✅ on the summary ("Yes, build it" for a small fix, "Yes, send it to Jamie" for a bigger one).
+- **Progress shows in the status line**, not as new messages (Jamie, 24 Nov 2026): queued, building, built (waiting
+  for Sam or Jamie, with a Preview link) and going live update the status card at the top of the thread. The thread
+  only gets a new message when someone needs to act or something went differently (live ✅, couldn't build, bigger
+  than it looked, rebuilt on top of another change, a person's comment).
 - Built in `lib/prompt.ts` (`reframe`, `step_up`, `enforce`), `lib/handlers.ts` (buttons) and `lib/grill/`
   (`grillRequest`: the interviewee is whoever asked). The tracker shows "Bigger idea: Sam to say full grill?" under Sam.
