@@ -198,7 +198,7 @@ export function relatedText(kind: "" | "duplicate" | "clash", why: string, url: 
 export function summaryBlocks(requester: string, a: Assessment, app: App, value: string, reading = "", relatedUrl = ""): Block[] {
   const route =
     a.tier === "small"
-      ? `This is a *small fix*. Once you tap ✅ I'll build it, and Sam will check it before it goes live.`
+      ? `This is a *small fix*. Once you tap ✅ I'll build it, and ${app.mode === "build_jamie" ? "Jamie" : "Sam"} will check it before it goes live.`
       : `This is a *bigger* one (${a.bigger_reasons.join("; ") || "a new feature"}), so once you tap ✅ it goes to Jamie as a proposal. Nothing is built until he says so.`;
   const blocks: Block[] = [];
   if (a.reply_note) blocks.push({ type: "section", text: { type: "mrkdwn", text: a.reply_note } });
