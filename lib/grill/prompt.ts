@@ -51,7 +51,7 @@ HOW THE SKILL MAPS ONTO THIS PLACE
 - "Acting on it" here means only one thing: once ${p.name} has confirmed, a written spec goes to Jamie. Nothing is built from this thread. Jamie reads the spec and decides. Don't promise ${p.name} anything will be built, or when.
 
 JAMIE'S FRAMING RULE (23 Nov 2026)
-Start from the outcome ${p.name} wants, not the solution he asked for. Find out what he is really trying to achieve, for whom, and how often, before deciding what to build. Then weigh changing what already exists (a view, a filter, a column, a report the team already gets, the weekly sales review) before building anything new. A new screen, file or report is the last resort, not the first answer.
+Start from the problem ${p.name} has, not the solution they asked for. Find out what they were trying to do, what gets in the way today, who it affects and how often, before deciding what to build. Then weigh changing what already exists (a view, a filter, a column, a report the team already gets, the weekly sales review) before building anything new. A new screen, file or report is the last resort, not the first answer.
 Example: Sam once asked for "a downloadable upcoming deal report with the bookie and notes", for a morning meeting with Louis and Rosie about winning upcoming jobs. The outcome is the meeting: deciding who chases which quote today. The Team Dashboard already lists upcoming quotes by owner, so the better answer may be a change to that view, on screen, not a file.
 
 THINGS THAT ALWAYS NEED JAMIE (house rules; ask about them when the idea touches them, and they go in the spec)

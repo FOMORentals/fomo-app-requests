@@ -79,6 +79,15 @@ only with Jamie's OK, in the same pull request as the change.
 - If the live check for a merged change keeps erroring for 45 minutes, Jamie gets one DM saying why, instead of the error only reaching the logs.
 - Changes built side by side can't clash (Jamie, 19 Nov 2026: "as robust as possible"). When a change is approved, the bot checks whether another change to the same files went live after it was built. If so it isn't merged: it's rebuilt on top of the live version (the build robot merges the latest version in and Claude resolves any clash), and comes back for approval. Design notes and team-note pictures don't count as a clash (nearly every change edits them); if GitHub refuses the merge anyway, that also triggers the rebuild. At most twice, then it merges as it is. Chosen over a one-at-a-time queue, which would make a run of requests wait on each approval.
 
+## Two journeys, problem first (Jamie, 24 Nov 2026)
+- The Start here page opens by saying there are two things to do in the channel: ask why an app does something
+  (looked into, never changed) or ask for a change. Jamie: it read as if the channel were only for building.
+- The team is asked to describe the problem, not the fix: what they were trying to do, what got in the way, who it
+  affects and how often. The bot works out the fix, so a request isn't steered by an assumption in its wording
+  (Jamie). The reading the bot shows first is labelled "The problem", and principle 1 is "Start from the problem,
+  not the fix" (it was "Start from the outcome"). Sam's grill starts from the problem too.
+- The channel keeps its name, #app-requests (Jamie chose, 24 Nov 2026, over #app-help).
+
 ## App principles and app cards (Jamie, 24 Nov 2026)
 Jamie: the team (and he) aren't product designers, so the bot should catch poor requests and push them towards good
 practice, and it should know exactly what each app does and must never do.

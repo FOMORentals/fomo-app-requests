@@ -18,9 +18,16 @@ export function howToMarkdown(): string {
   return [
     "# How #app-requests works",
     "",
-    "**Post one message here, in your own words.** Something broken, something you want changed, an idea, or \"why does the app do this?\". A screenshot helps. The bot works out the rest: which app, how big, and who needs to OK it.",
+    "**You can do two things here.** Post one message in your own words and the bot works out which one it is.",
     "",
-    "1. **The bot says how it read you and how big it looks**, and asks just enough questions for that size (see below), each with a suggested answer (\"1 yes\" is fine).",
+    ":mag: **Ask why an app does something.** Something isn't refreshing, a button does the wrong thing, a number looks off. Start with \"?\" or \"why\". The bot looks into the app (it never changes anything) and tells you whether it's working as designed or looks broken. If it's broken, tap Fix it and it becomes a change.",
+    "",
+    ":hammer_and_wrench: **Ask for a change.** Something broken, something that slows you down, or an idea.",
+    "",
+    "**Describe the problem, not the fix.** Say what you were trying to do, what got in the way, who it affects and how often. Leave the fix to the bot: it knows what the apps already do, and the best fix is often not the first one that comes to mind. \"Every morning I can't tell which quotes need chasing\" works better than \"add an export of quotes\". A screenshot of what you use today helps.",
+    "",
+    "Then:",
+    "1. **The bot says how it read you and how big it looks**, and asks just enough questions for that size (see below), each with a suggested answer (\"1 yes\" is fine). Answer honestly, \"I don't know\" included.",
     "2. **You tap ✅ on its summary.** That's your only tap.",
     "3. **Quick fixes and changes are built** in 10 to 20 minutes and checked by Sam or Jamie before going live. **New ideas** end as a written plan that goes to Jamie.",
     "4. **The status line at the top of your thread** always shows where it's at. You're only pinged when you need to do something.",
@@ -31,8 +38,6 @@ export function howToMarkdown(): string {
     "- :red_circle: **New idea** (a new screen, report or routine): Sam decides if it gets the full interview, as many rounds as it takes.",
     "- If your answers show it's bigger than it looked, the bot says so and moves it up a size.",
     "",
-    "**Asking why an app does something?** The bot looks into the app (it never changes anything) and tells you whether it's working as designed or looks broken. If it's broken, tap Fix it.",
-    "",
-    "**Tips:** say what you were trying to do, not only what went wrong. If the bot gets you wrong, just reply in the thread. If you go quiet it nudges you after a working day and closes the request after three; reply to reopen it. Changes that go live are announced in #whats-new.",
+    "**Tips:** if the bot gets you wrong, just reply in the thread. If you go quiet it nudges you after a working day and closes the request after three; reply to reopen it. Changes that go live are announced in #whats-new.",
   ].join("\n");
 }

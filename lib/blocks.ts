@@ -140,7 +140,7 @@ export function givenText(needs: Need[] | undefined): string {
 /** How Claude read the request and its size, shown with the first questions (Jamie, 24 Nov 2026). Pure. */
 export function readingText(r: { after: string; exists: string; scope: Scope; why: string }): string {
   const size = r.scope ? `${SCOPE_LABEL[r.scope]}${r.why ? `: ${r.why}` : ""}` : r.why;
-  return [`*What you're after:* ${r.after}`, r.exists ? `*What exists:* ${r.exists}` : "", size ? `*Size:* ${size}` : ""]
+  return [`*The problem:* ${r.after}`, r.exists ? `*What exists:* ${r.exists}` : "", size ? `*Size:* ${size}` : ""]
     .filter(Boolean)
     .map((l) => `> ${l.replace(/\n/g, "\n> ")}`)
     .join("\n");
