@@ -56,7 +56,10 @@ async function ensureLabel(repo: string, name = BUILD_LABEL): Promise<void> {
   await gh(`/repos/${OWNER}/${repo}/labels`, { method: "POST", body: { name, ...LABELS[name] } });
 }
 
-/** Opens the question issue; its label starts the repo's "App question" workflow, which closes it when done. */
+/**
+ * Opens the question issue in the private questions repo (QUESTIONS_REPO, Jamie 25 Nov 2026); its label starts the
+ * "App question" workflow there, which reads the app named in the body and closes the issue when done.
+ */
 export async function openQuestionIssue(repo: string, title: string, body: string): Promise<{ number: number; url: string }> {
   await ensureLabel(repo, QUESTION_LABEL);
   const res = await gh(`/repos/${OWNER}/${repo}/issues`, { method: "POST", body: { title, body } });

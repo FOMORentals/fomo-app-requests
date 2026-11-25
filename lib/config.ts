@@ -83,6 +83,11 @@ export const MAX_CATCH_UPS = 2;
 export function canLookInto(app: App | undefined): app is App {
   return !!app && app.mode !== "not_offered";
 }
+/**
+ * Questions are looked into in this private repo, with read-only live data: app data, logs, then HubSpot, Xero and
+ * Rentman (Jamie, 25 Nov 2026). It holds the read-only access once, and keeps questions out of public app repos.
+ */
+export const QUESTIONS_REPO = "fomo-app-questions";
 /** At most this many looks into the code per question, then it goes to Jamie. */
 export const MAX_LOOKS = 2;
 

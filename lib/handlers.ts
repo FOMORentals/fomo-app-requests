@@ -22,7 +22,7 @@ import {
   type Built,
   type Verdict,
 } from "./blocks";
-import { APPROVER_EMAIL, MAX_CATCH_UPS, MAX_LOOKS, NOTES_FILES, OWNER_EMAIL, PRINCIPLES_FILE, appByKey, canLookInto, personByEmail } from "./config";
+import { APPROVER_EMAIL, MAX_CATCH_UPS, MAX_LOOKS, NOTES_FILES, OWNER_EMAIL, PRINCIPLES_FILE, QUESTIONS_REPO, appByKey, canLookInto, personByEmail } from "./config";
 import { assess, type Image } from "./claude";
 import { closeIssue, closePr, fileNow, mergePr, openQuestionIssue, overlapSinceBuilt, rebuild } from "./github";
 import { questionIssueBody, questionIssueTitle } from "./issue";
@@ -279,10 +279,13 @@ async function startLook(l: Loaded, app: NonNullable<ReturnType<typeof appByKey>
   const c = l.card;
   const thread = transcript(await threadLines(l));
   const first = l.messages.find((m) => m.ts === l.thread)?.text ?? focus;
+  const email = await userEmail(c.requester).catch(() => "");
+  const role = personByEmail(email)?.role;
+  const asker = role === "owner" || role === "approver" ? role : "team";
   const issue = await openQuestionIssue(
-    app.repo,
+    QUESTIONS_REPO,
     questionIssueTitle(first),
-    questionIssueBody({ app, requesterName: await nameOf(c.requester), link: await link(l), focus, thread, channel: l.channel, threadTs: l.thread }),
+    questionIssueBody({ app, asker, requesterName: await nameOf(c.requester), link: await link(l), focus, thread, channel: l.channel, threadTs: l.thread }),
   );
   c.stage = "looking";
   c.looks += 1;

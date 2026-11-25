@@ -18,7 +18,8 @@ Setup: `docs/SETUP.md`.
 - `lib/elsewhere.ts` spots requests finished outside the bot (a merged pull request does it) and marks them done, with Undo.
 - `lib/records.ts` the request's state, stored as metadata on the bot's card in the thread (Slack is the database).
 - `templates/` the workflows copied into each app repo: `app-request-build.yml` (the build robot),
-  `app-question.yml` (looks into a question, read only, reports to `/api/question/callback`) and
+  `app-question.yml` (the old per-repo look; questions now go to the private repo FOMORentals/fomo-app-questions,
+  which also reads live data read only, Jamie 25 Nov 2026, and reports to `/api/question/callback`) and
   `design-notes.yml` (the "Design notes" check).
 
 - `lib/grill/` Sam's grill (`/grill`, Jamie 23 Nov 2026): Matt Pocock's grilling skill word for word

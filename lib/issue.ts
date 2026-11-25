@@ -88,8 +88,12 @@ export function questionIssueTitle(question: string): string {
   return `App question: ${q.length > 90 ? `${q.slice(0, 87)}...` : q}`;
 }
 
+/** Who asked, for the look: money amounts are only given to Jamie and Sam (Jamie, 25 Nov 2026). */
+export type Asker = "owner" | "approver" | "team";
+
 export function questionIssueBody(o: {
   app: App;
+  asker: Asker;
   requesterName: string;
   link: string;
   focus: string; // what Claude said it would look into
@@ -99,6 +103,8 @@ export function questionIssueBody(o: {
 }): string {
   return [
     refMarker(o.channel, o.threadTs),
+    `<!-- ar-app: ${o.app.repo} -->`,
+    `<!-- ar-asker: ${o.asker} -->`,
     `Asked by **${o.requesterName}** in Slack #app-requests: ${o.link}`,
     `App: **${o.app.name}**. This is a question, not a change: look, don't touch.`,
     "",

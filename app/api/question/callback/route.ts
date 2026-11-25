@@ -4,16 +4,20 @@ import { handleQuestionReport, type QuestionReport } from "@/lib/handlers";
 import { report } from "@/lib/report";
 import { refreshTrackerIfChanged } from "@/lib/tracker";
 
-// The "App question" workflow in each app repo reports here what it found when it looked into a question (read only).
+// The "App question" workflow (FOMORentals/fomo-app-questions, with live data) reports here what it found when it looked into a question (read only).
 export const maxDuration = 60;
 
+// Signed with QUESTION_CALLBACK_SECRET by the private questions repo (live data, Jamie 25 Nov 2026), or with
+// BUILD_CALLBACK_SECRET by an app repo's own "App question" workflow (looks started before the switch).
 function signed(raw: string, sig: string | null): boolean {
-  const secret = process.env.BUILD_CALLBACK_SECRET?.trim();
-  if (!secret) throw new Error("BUILD_CALLBACK_SECRET is not set");
+  const secrets = [process.env.QUESTION_CALLBACK_SECRET, process.env.BUILD_CALLBACK_SECRET].map((s) => s?.trim()).filter(Boolean) as string[];
+  if (!secrets.length) throw new Error("Neither QUESTION_CALLBACK_SECRET nor BUILD_CALLBACK_SECRET is set");
   if (!sig) return false;
-  const want = Buffer.from("sha256=" + createHmac("sha256", secret).update(raw).digest("hex"));
   const got = Buffer.from(sig);
-  return want.length === got.length && timingSafeEqual(want, got);
+  return secrets.some((secret) => {
+    const want = Buffer.from("sha256=" + createHmac("sha256", secret).update(raw).digest("hex"));
+    return want.length === got.length && timingSafeEqual(want, got);
+  });
 }
 
 export async function POST(req: Request) {

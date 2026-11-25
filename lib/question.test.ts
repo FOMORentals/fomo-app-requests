@@ -81,9 +81,11 @@ test("each verdict has its buttons; broken offers Fix it", () => {
 });
 
 test("the question issue points back at the thread and says look, don't touch", () => {
-  const body = questionIssueBody({ app: appByKey("dashboard")!, requesterName: "Will", link: "https://x", focus: "Refresh times", thread: "a ``` b", channel: "C0ABC", threadTs: "1763400000.123456" });
+  const body = questionIssueBody({ app: appByKey("dashboard")!, asker: "team", requesterName: "Will", link: "https://x", focus: "Refresh times", thread: "a ``` b", channel: "C0ABC", threadTs: "1763400000.123456" });
   assert.deepEqual(readRefMarker(body), { channel: "C0ABC", thread: "1763400000.123456" });
   assert.match(body, /look, don't touch/);
+  assert.match(body, /<!-- ar-app: fomo-bookings-board-v2 -->/);
+  assert.match(body, /<!-- ar-asker: team -->/);
   assert.ok(!body.includes("a ``` b"));
   assert.ok(questionIssueTitle("x".repeat(200)).length < 110);
 });
