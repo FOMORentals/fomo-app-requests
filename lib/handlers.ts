@@ -45,7 +45,7 @@ import {
   type Loaded,
 } from "./actions";
 import { enforce, hasAppCard, missingNeeds, notesBlock, othersBlock, principlesBlock, transcript, turnPrompt, type Assessment, type Depth, type Other } from "./prompt";
-import { firstSinceStepBack, mentionsBot, STEP_BACK_NOTE, steppedBack } from "./aside";
+import { firstSinceStepBack, mentionsBot, mentionsSomeoneElse, STEP_BACK_NOTE, steppedBack } from "./aside";
 import { approvalMeta, cardMeta, decodeRef, encodeRef, newCard, reopensOnReply } from "./records";
 import { grillFromMessage, grillReply, grillRequest } from "./grill/handlers";
 import { report } from "./report";
@@ -72,13 +72,16 @@ export async function handleEvent(e: any): Promise<void> {
   if (!l || !reopensOnReply(l.card.stage)) return;
   // Side conversations (Jamie, 24 Nov 2026): once someone else has joined in, stay out unless mentioned.
   // Anyone on the team can bring the bot back in by mentioning it.
-  const mentioned = mentionsBot(e.text, await botUserId());
+  const botUser = await botUserId();
+  const mentioned = mentionsBot(e.text, botUser);
   if (e.user !== l.card.requester) {
     if (mentioned && personByEmail(await userEmail(e.user))) return turn(l);
     return;
   }
+  // The requester talking to someone else ("@Rosie let me know if this answers it"): not for the bot (Jamie, 25 Nov 2026).
+  if (!mentioned && mentionsSomeoneElse(e.text, botUser)) return;
   const me = await botId();
-  if (!mentioned && steppedBack(l.messages, l.thread, l.card.requester, me, e.ts)) {
+  if (!mentioned && steppedBack(l.messages, l.thread, l.card.requester, me, e.ts, botUser)) {
     if (firstSinceStepBack(l.messages, l.thread, l.card.requester, me, e.ts)) {
       const other = [...l.messages].reverse().find((m) => Number(m.ts) < Number(e.ts) && m.user && !m.bot_id && m.user !== l.card.requester && m.ts !== l.thread);
       await postEphemeral(e.channel, l.thread, e.user, STEP_BACK_NOTE(other?.user ? await nameOf(other.user) : "someone")).catch((err) =>
