@@ -282,11 +282,15 @@ async function startLook(l: Loaded, app: NonNullable<ReturnType<typeof appByKey>
   const email = await userEmail(c.requester).catch(() => "");
   const role = personByEmail(email)?.role;
   const asker = role === "owner" || role === "approver" ? role : "team";
-  const issue = await openQuestionIssue(
-    QUESTIONS_REPO,
-    questionIssueTitle(first),
-    questionIssueBody({ app, asker, requesterName: await nameOf(c.requester), link: await link(l), focus, thread, channel: l.channel, threadTs: l.thread }),
-  );
+  const title = questionIssueTitle(first);
+  const body = questionIssueBody({ app, asker, requesterName: await nameOf(c.requester), link: await link(l), focus, thread, channel: l.channel, threadTs: l.thread });
+  // If the private questions repo can't be reached (e.g. the GitHub token doesn't cover it), fall back to the app's
+  // own "App question" workflow (code only) rather than fail the question, and tell Jamie (rule 1).
+  const issue = await openQuestionIssue(QUESTIONS_REPO, title, body).catch(async (err) => {
+    report(err, "question.open_questions_repo", { app: app.key });
+    await dm(OWNER_EMAIL, `Couldn't open a question in ${QUESTIONS_REPO} (${String(err).slice(0, 200)}), so it was looked into with code only. Check the App requests GitHub token covers ${QUESTIONS_REPO}.`).catch(() => {});
+    return openQuestionIssue(app.repo, title, body);
+  });
   c.stage = "looking";
   c.looks += 1;
   c.lookIssue = issue.number;
