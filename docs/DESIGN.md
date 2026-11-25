@@ -188,8 +188,13 @@ practice, and it should know exactly what each app does and must never do.
   matching happens in the Cloud Function's Rentman linker). Fixes there still go to Jamie; questions about the
   Cloud Function on its own still go to Jamie. Whether its last push deployed can't be seen from the look.
   At most 2 looks per question, then Jamie. A look that doesn't report back in 45 minutes goes to Jamie.
-- Not yet: the apps' own server logs and refresh times (Vercel, Google Cloud, Firestore). The look says when its
-  answer depends on them. Adding them needs read-only access Jamie sets up; a separate decision.
+- **Live data (Jamie, 25 Nov 2026, after Margarita's "every Prepped card says Hold" came back "Couldn't tell"):**
+  looks now run in one private repo, FOMORentals/fomo-app-questions, which holds read-only access once and also
+  reads the live app data (Firestore) and Google Cloud logs, then (in later steps) HubSpot, Xero and Rentman. The
+  question issue is opened there, not in the app's repo, so questions stay out of public repos. Claude never sees a
+  key; each question has read limits; personal details are hidden; money amounts only when Jamie or Sam asked (the
+  issue carries who asked). Its own decisions are in that repo's docs/DESIGN.md. The callback accepts
+  QUESTION_CALLBACK_SECRET (that repo) as well as BUILD_CALLBACK_SECRET. Vercel server logs: not yet.
 
 ## Website listings, `/list-kit` (Jamie, 23 Nov 2026)
 Planned with Jamie in the project thread "Plan Slack tool for new website kit listings" (12 questions, all agreed).
