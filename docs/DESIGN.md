@@ -305,5 +305,9 @@ after Jamie wrote "I'm checking this one now", Rosie's reply to him made the bot
   its buttons. Once it has posted again it carries on as usual until someone else joins in again.
 - The requester gets one note only they can see ("I've stepped back because Jamie has joined in…") on their first reply
   after it steps back, so they know why it went quiet. Not repeated.
+- **The same when the requester @mentions someone else** (Jamie, 25 Nov 2026: after the bot answered a question Jamie
+  had re-asked for Rosie, his "@Rosie let me know if this answers things for you" got a second answer). A message that
+  mentions a person and not the bot is for that person, and so are the requester's replies after it, until the bot is
+  mentioned or posts again. Mentioning the bot as well (@Rosie @App requests) still asks the bot.
 - The tick (nudges, timeouts, Done detection) is unchanged. Chosen over "only answer @mentions" (more work for the team
   on every request) and a "Leave it to me" button (one more tap; joining in already says it).

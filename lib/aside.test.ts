@@ -1,7 +1,7 @@
 /** Side conversations: the bot steps back once someone else joins in (Jamie, 24 Nov 2026). */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { firstSinceStepBack, mentionsBot, steppedBack } from "./aside";
+import { firstSinceStepBack, mentionsBot, mentionsSomeoneElse, steppedBack } from "./aside";
 import type { SlackMessage } from "./slack";
 
 const BOT = "B1";
@@ -30,4 +30,20 @@ test("an @mention of the bot brings it back", () => {
 test("the 'I've stepped back' note goes once, on the requester's first reply", () => {
   assert.equal(firstSinceStepBack(rosie, "1", "ROSIE", BOT, "5"), true);
   assert.equal(firstSinceStepBack([...rosie, m(6, "JAMIE"), m(7, "ROSIE")], "1", "ROSIE", BOT, "7"), false);
+});
+
+// Jamie, 25 Nov 2026: Jamie re-asked Rosie's question, the bot answered, Jamie wrote "@Rosie let me know if this
+// answers things for you" and the bot answered again.
+test("the requester @mentioning someone else is not for the bot", () => {
+  assert.equal(mentionsSomeoneElse("<@UROSIE> let me know if this answers things for you", "UBOT"), true);
+  assert.equal(mentionsSomeoneElse("<@UROSIE|rosie> thoughts?", "UBOT"), true);
+  assert.equal(mentionsSomeoneElse("<@UBOT> can you look again?", "UBOT"), false);
+  assert.equal(mentionsSomeoneElse("still not clear, why?", "UBOT"), false);
+});
+
+test("after the requester @mentions someone else, their next replies stay with that person", () => {
+  const t = [m(1, "JAMIE"), m(2, "bot"), { ts: "3", user: "JAMIE", text: "<@UROSIE> let me know" }, m(4, "JAMIE")];
+  assert.equal(steppedBack(t, "1", "JAMIE", BOT, "4", "UBOT"), true);
+  const both = [m(1, "JAMIE"), m(2, "bot"), { ts: "3", user: "JAMIE", text: "<@UROSIE> <@UBOT> both have a look" }, m(4, "JAMIE")];
+  assert.equal(steppedBack(both, "1", "JAMIE", BOT, "4", "UBOT"), false);
 });
