@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { approvalBlocks, proposalBlocks, questionBlocks, statusLine, summaryBlocks, textModal } from "./blocks";
-import { appByKey } from "./config";
+import { approvalBlocks, liveDmText, proposalBlocks, questionBlocks, requestName, statusLine, summaryBlocks, textModal, undoneDmText } from "./blocks";
+import { APPS, appByKey } from "./config";
 import { newCard } from "./records";
 import type { Assessment } from "./prompt";
 
@@ -63,4 +63,24 @@ test("the summary shows the ID it will use; Jamie's proposal shows what's still 
 test("Try again's form can be left empty", () => {
   const m = textModal({ callbackId: "retry", title: "Try again", label: "x", submit: "Try again", value: "C|1", optional: true });
   assert.equal(m.blocks[0].optional, true);
+});
+
+test("the requester's 'it's live' DM is a few words with a try-it link and the thread", () => {
+  const t = liveDmText({ what: "Stock take: <b>Checked</b> list", app: appByKey("inventory"), threadUrl: "https://x/p1", spotted: false });
+  assert.equal(t, "Your request is live ✅ *Stock take: bChecked/b list* (Inventory dashboard).\nTry it: <https://inventory-dashboard.fomorentals.co.uk|Inventory dashboard>\n<https://x/p1|See the thread>");
+  assert.match(liveDmText({ what: "X", app: appByKey("overtime"), threadUrl: "u", spotted: true }), /#rentals_overtime in Slack\n<u\|See the thread>\. If it isn't what you asked for, tap Undo there\.$/);
+  assert.doesNotMatch(liveDmText({ what: "X", app: appByKey("function"), threadUrl: "u", spotted: false }), /Try it/);
+  assert.equal(undoneDmText("X", "u"), "Sorry, too soon: *X* isn't done yet. <u|See the thread>.");
+});
+
+test("a request's short name is its title, else the start of what was asked", () => {
+  assert.equal(requestName("Fix the filter", "anything"), "Fix the filter");
+  assert.equal(requestName(undefined, "Can we  rename <@U1> the columns"), "Can we rename the columns");
+  assert.equal(requestName("", ""), "your request");
+  const long = requestName(undefined, "Please make the following changes to the stock take app on the inventory dashboard: 1. Checked items");
+  assert.ok(long.length <= 80 && long.endsWith("…"), long);
+});
+
+test("every app the team can ask about says where to try a change", () => {
+  for (const a of APPS.filter((x) => x.mode !== "not_offered")) assert.ok(a.tryAt, a.key);
 });

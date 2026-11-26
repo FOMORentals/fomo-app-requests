@@ -41,6 +41,7 @@ import {
   postInThread,
   save,
   startBuild,
+  tellRequester,
   threadLines,
   type Loaded,
 } from "./actions";
@@ -681,6 +682,7 @@ async function submitted(callbackId: string, ref: { channel: string; thread: str
     await settle(l.card.approvalChannel, l.card.approvalTs, title, outcome);
     await settle(l.card.copyChannel, l.card.copyTs, title, outcome);
     await postInThread(l.channel, l.thread, `<@${l.card.requester}> this is done ✅ ${name} sorted it outside this thread${text ? `: ${text}` : "."}`);
+    await tellRequester(l, { spotted: false });
   } else if (callbackId === "retry" && l.card.stage === "failed") {
     await rebuild(app.repo, l.card.issue, text ? `Try again, asked by ${name}, who adds:\n\n${text}` : `Try again, asked by ${name}.`);
     l.card.stage = "building";

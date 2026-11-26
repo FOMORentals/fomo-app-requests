@@ -392,3 +392,27 @@ export function textModal(o: { callbackId: string; title: string; label: string;
     ],
   };
 }
+
+/**
+ * The requester's DM when their request goes live (Jamie, 26 Nov 2026: "do they get tagged? If not, DM them a few
+ * words"). The thread already tags them; this reaches them even if they don't follow the thread. Pure, tested.
+ */
+export function liveDmText(o: { what: string; app: App | undefined; threadUrl: string; spotted: boolean }): string {
+  const what = o.what.replace(/[<>|*_~`]/g, "").trim();
+  const lines = [`Your request is live ✅ *${what}*${o.app ? ` (${o.app.name})` : ""}.`];
+  if (o.app?.tryAt) lines.push(`Try it: ${o.app.tryAt}`);
+  lines.push(`<${o.threadUrl}|See the thread>${o.spotted ? ". If it isn't what you asked for, tap Undo there." : ""}`);
+  return lines.join("\n");
+}
+
+/** What the "it's live" DM becomes when the bot's "looks done" is undone. Pure, tested. */
+export function undoneDmText(what: string, threadUrl: string): string {
+  return `Sorry, too soon: *${what.replace(/[<>|*_~`]/g, "").trim()}* isn't done yet. <${threadUrl}|See the thread>.`;
+}
+
+/** A short name for a request: its summary title, else the start of what was asked. Pure, tested. */
+export function requestName(title: string | undefined, asked: string): string {
+  if (title) return title;
+  const first = asked.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  return first.length > 80 ? `${first.slice(0, 77).replace(/\s+\S*$/, "")}…` : first || "your request";
+}

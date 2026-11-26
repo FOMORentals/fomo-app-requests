@@ -164,6 +164,12 @@ practice, and it should know exactly what each app does and must never do.
   Undo; that pull request is never matched to it again. Unsure means it's left alone (a wrong "done" is worse than a
   missed one). It doesn't close GitHub issues or settle Jamie's DMs itself. At most 2 Claude calls a run, and only when
   a new pull request has merged or Jamie has replied since the last check.
+- **The requester is told by DM when it's live** (Jamie, 26 Nov 2026: "do they get tagged? If not, can they get DM'd
+  … a few words saying the changes have been made"). They were already @mentioned in the thread; now they also get a
+  short DM: "Your request is live ✅ *name* (app)", a try-it link for the app (`tryAt` in `lib/config.ts`) and a link
+  to the thread. It goes out when a built change's live deploy is confirmed, when Jamie taps Done elsewhere, and when
+  the bot spots it done itself (then the DM also says "tap Undo there if it isn't right", and an Undo rewrites the DM
+  to "Sorry, too soon"). Jamie's own requests get no DM. A failed DM is reported, and the request still goes live.
 
 ## "Why is the app doing this?" questions (Jamie, 20 Nov 2026)
 - The team can ask why an app behaves the way it does (something not refreshing as expected, a button not doing
