@@ -90,6 +90,7 @@ export type Card = {
   elsewhereMsg: string; // the newest of Jamie's thread replies already checked ("it's done/sorted" counts too)
   undo: string; // JSON of what the bot changed when it marked this done itself, so Undo can put it back; "" otherwise
   undoTs: string; // the bot's "looks done" message in the thread, with the Undo button
+  liveDm: string; // "channel|ts" of the requester's "it's live" DM after a spotted done, so Undo can correct it (26 Nov 2026)
   // Requests that clash with or repeat another one (Jamie, 24 Nov 2026: "too many cooks").
   relatedKind: "" | "duplicate" | "clash";
   relatedUrl: string; // link to the other request's post
@@ -148,6 +149,7 @@ export function newCard(requester: string): Card {
     elsewhereMsg: "",
     undo: "",
     undoTs: "",
+    liveDm: "",
     relatedKind: "",
     relatedUrl: "",
     relatedWhy: "",

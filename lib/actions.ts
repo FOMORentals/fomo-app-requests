@@ -1,6 +1,6 @@
 /** Side effects shared by the handlers and the cron: load and save a request, read its thread, start a build. */
 import { report } from "./report";
-import { cardBlocks, type Block } from "./blocks";
+import { cardBlocks, liveDmText, requestName, type Block } from "./blocks";
 import { APPROVER_EMAIL, MAX_BUILDS, OWNER_EMAIL, PEOPLE, PRINCIPLES_FILE, appByKey, type App } from "./config";
 import { fileNow, openBuildIssue } from "./github";
 import { issueBody, issueTitle } from "./issue";
@@ -81,6 +81,30 @@ export async function dm(email: string, text: string, blocks?: Block[], metadata
   const ch = await dmChannel(await userIdByEmail(email));
   const res = await slack<{ ts: string; channel: string }>("chat.postMessage", { channel: ch, text, blocks, metadata, unfurl_links: false });
   return { channel: res.channel, ts: res.ts };
+}
+
+/** The request's short name: its summary title, else the start of what was asked. */
+export function nameOfRequest(l: Loaded, fallback = ""): string {
+  const asked = l.messages.find((m) => m.ts === l.thread)?.text ?? "";
+  return requestName(l.card.summary?.title || fallback, asked);
+}
+
+/**
+ * Tells the requester by DM that their request is live (Jamie, 26 Nov 2026), on top of the @mention in the thread.
+ * Not Jamie: he's the one who put it live. A failed DM is reported (rule 1) but doesn't undo going live.
+ * `spotted` (the bot marked it done itself): the DM is kept on the card so Undo can correct it.
+ */
+export async function tellRequester(l: Loaded, o: { spotted: boolean; title?: string }): Promise<void> {
+  try {
+    if ((await userEmail(l.card.requester)) === OWNER_EMAIL) return;
+    const threadUrl = await messageLink(l.channel, l.thread);
+    const text = liveDmText({ what: nameOfRequest(l, o.title), app: appByKey(l.card.app), threadUrl, spotted: o.spotted });
+    const ch = await dmChannel(l.card.requester);
+    const res = await slack<{ ts: string; channel: string }>("chat.postMessage", { channel: ch, text, unfurl_links: false });
+    if (o.spotted) l.card.liveDm = `${res.channel}|${res.ts}`;
+  } catch (err) {
+    report(err, "tell_requester", { thread: l.thread });
+  }
 }
 
 export const ownerId = () => userIdByEmail(OWNER_EMAIL);

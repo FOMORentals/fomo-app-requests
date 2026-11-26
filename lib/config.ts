@@ -40,20 +40,21 @@ export type App = {
   name: string; // what the team calls it
   mode: Mode;
   about: string; // one line, used to work out which app a request is about
+  tryAt?: string; // where to try a change once it's live (Slack mrkdwn), for the requester's "it's live" DM (26 Nov 2026)
 };
 
 export const OWNER = "FOMORentals";
 
 export const APPS: App[] = [
-  { key: "dashboard", repo: "fomo-bookings-board-v2", name: "Team Dashboard", mode: "build", about: "the bookings board: tickets, enquiries, Order Tracker, Kit Prep, Applications, Accounts Receivable, conversation window, warehouse TV (team-dashboard.fomorentals.co.uk)" },
-  { key: "overtime", repo: "fomo-overtime", name: "Overtime", mode: "build", about: "overtime slots in Slack #rentals_overtime, /overtime, claiming and giving away slots, the admin page and CSV" },
-  { key: "whatsnew", repo: "fomo-whats-new", name: "What's new", mode: "build", about: "the #whats-new channel, /whatsnew, the history page, idea votes" },
-  { key: "inventory", repo: "fomo-inventory-dashboard", name: "Inventory dashboard", mode: "build", about: "fleet and kit charts and KPIs: Overview, Explore, buy and sell decisions, cross-hire, data pages (its Onboarding section is Kit onboarding, below)" },
-  { key: "portal", repo: "fomo-client-portal", name: "Client portal", mode: "build_jamie", about: "what clients see: quotes, invoices, Pay now, kit builder, packing checklist" },
-  { key: "website", repo: "fomo-rentals-website-rebuild", name: "Website", mode: "build_jamie", about: "the public website fomorentals.co.uk, the Open Account form, the rate card" },
+  { key: "dashboard", repo: "fomo-bookings-board-v2", name: "Team Dashboard", mode: "build", about: "the bookings board: tickets, enquiries, Order Tracker, Kit Prep, Applications, Accounts Receivable, conversation window, warehouse TV (team-dashboard.fomorentals.co.uk)", tryAt: "<https://team-dashboard.fomorentals.co.uk|Team Dashboard>" },
+  { key: "overtime", repo: "fomo-overtime", name: "Overtime", mode: "build", about: "overtime slots in Slack #rentals_overtime, /overtime, claiming and giving away slots, the admin page and CSV", tryAt: "#rentals_overtime in Slack" },
+  { key: "whatsnew", repo: "fomo-whats-new", name: "What's new", mode: "build", about: "the #whats-new channel, /whatsnew, the history page, idea votes", tryAt: "#whats-new in Slack" },
+  { key: "inventory", repo: "fomo-inventory-dashboard", name: "Inventory dashboard", mode: "build", about: "fleet and kit charts and KPIs: Overview, Explore, buy and sell decisions, cross-hire, data pages (its Onboarding section is Kit onboarding, below)", tryAt: "<https://inventory-dashboard.fomorentals.co.uk|Inventory dashboard>" },
+  { key: "portal", repo: "fomo-client-portal", name: "Client portal", mode: "build_jamie", about: "what clients see: quotes, invoices, Pay now, kit builder, packing checklist", tryAt: "<https://client-portal.fomorentals.co.uk|Client portal>" },
+  { key: "website", repo: "fomo-rentals-website-rebuild", name: "Website", mode: "build_jamie", about: "the public website fomorentals.co.uk, the Open Account form, the rate card", tryAt: "<https://www.fomorentals.co.uk|fomorentals.co.uk>" },
   { key: "kit", repo: "fomo-kit-onboarding", name: "Kit onboarding", mode: "not_offered", about: "adding new kit to Rentman: the Onboarding section of the inventory dashboard (batches, goods in, push to Rentman) and the job behind it (a work in progress, not in use yet: Jamie, 24 Nov 2026)" },
-  { key: "consignor", repo: "fomo-consignor-portal", name: "Consignor portal", mode: "build_jamie", about: "what consignors (kit owners such as FKF One) see about their kit and commission" },
-  { key: "requests", repo: "fomo-app-requests", name: "App requests", mode: "proposal", about: "this #app-requests channel itself: the questions, approvals and builds" },
+  { key: "consignor", repo: "fomo-consignor-portal", name: "Consignor portal", mode: "build_jamie", about: "what consignors (kit owners such as FKF One) see about their kit and commission", tryAt: "<https://consignors.fomorentals.co.uk|Consignor portal>" },
+  { key: "requests", repo: "fomo-app-requests", name: "App requests", mode: "proposal", about: "this #app-requests channel itself: the questions, approvals and builds", tryAt: "#app-requests in Slack" },
   { key: "status", repo: "fomo-status-dashboard", name: "Status dashboard", mode: "not_offered", about: "Jamie's traffic-light view of every system" },
   { key: "function", repo: "fomo-cloud-function", name: "Rentman-HubSpot link (Cloud Function)", mode: "not_offered", about: "behind the scenes: Rentman to HubSpot deal sync, KPI sheet, Xero export, invoice reminders" },
   { key: "rentmancore", repo: "fomo-rentman-core", name: "Rentman core", mode: "not_offered", about: "behind the scenes: the shared Rentman library" },

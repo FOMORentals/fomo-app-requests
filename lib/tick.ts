@@ -14,7 +14,7 @@
  * Runs at most 60 s (maxDuration) against a 15-minute interval, so two runs can't overlap and no lock is needed.
  * It stops itself at 50 s and logs INCOMPLETE (rule 2). One failure doesn't stop the rest; failures are counted (rule 1).
  */
-import { allRequests, appOf, buildsRunning, dm, link, postInThread, save, startBuild, type Loaded } from "./actions";
+import { allRequests, appOf, buildsRunning, dm, link, postInThread, save, startBuild, tellRequester, type Loaded } from "./actions";
 import { DONE_ELSEWHERE_FROM } from "./blocks";
 import { checkDoneElsewhere } from "./elsewhere";
 import { APPROVER_EMAIL, OWNER_EMAIL } from "./config";
@@ -117,6 +117,7 @@ export async function runTick(now = Date.now()): Promise<TickResult> {
           c.stage = "live";
           await save(l);
           await postInThread(l.channel, l.thread, `<@${c.requester}> it's live ✅. What's new will tell the team.`);
+          await tellRequester(l, { spotted: false });
           r.live++;
         } else if (d.state === "failure") {
           c.stage = "failed";

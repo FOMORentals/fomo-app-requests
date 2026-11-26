@@ -12,13 +12,14 @@
  * No Rentman. A failed check is reported (rule 1) and tried again next tick.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { nameOf, ownerId, postInThread, save, threadLines, type Loaded } from "./actions";
-import { DONE_ELSEWHERE_FROM, type Block } from "./blocks";
+import { nameOf, nameOfRequest, ownerId, postInThread, save, tellRequester, threadLines, type Loaded } from "./actions";
+import { DONE_ELSEWHERE_FROM, undoneDmText, type Block } from "./blocks";
 import { OWNER, appByKey } from "./config";
 import { gh } from "./github";
+import { report } from "./report";
 import { MODEL, transcript } from "./prompt";
 import { encodeRef, type Card, type Stage } from "./records";
-import { slack } from "./slack";
+import { messageLink, slack } from "./slack";
 
 export const MAX_PER_TICK = 2;
 const LOOKBACK = 30;
@@ -156,6 +157,7 @@ export async function checkDoneElsewhere(all: Loaded[], budgetLeft: () => boolea
         ? `<@${c.requester}> this looks done ✅ It went live in <${pr.url}|${pr.title.replace(/[<>|]/g, "")}>.${why} I've marked it as done. If that's wrong, tap Undo.`
         : `<@${c.requester}> this looks sorted ✅ Jamie said so above.${why} I've marked it as done. If that's wrong, tap Undo.`;
       c.undoTs = await postInThread(l.channel, l.thread, text, spottedBlocks(text, encodeRef({ channel: l.channel, thread: l.thread })));
+      await tellRequester(l, { spotted: true, title: pr?.title });
       await save(l);
       marked++;
     } catch (err) {
@@ -170,8 +172,12 @@ export async function undoSpotted(l: Loaded, userId: string): Promise<boolean> {
   const c = l.card;
   if (!undoDone(c)) return false;
   const ts = c.undoTs;
+  const [dmCh, dmTs] = c.liveDm.split("|");
   c.undoTs = "";
+  c.liveDm = "";
   await save(l);
   if (ts) await slack("chat.update", { channel: l.channel, ts, text: `Undone by ${await nameOf(userId)}: not done yet.`, blocks: [] });
+  // The requester's "it's live" DM is corrected too, so it doesn't say done when it isn't (26 Nov 2026).
+  if (dmCh && dmTs) await slack("chat.update", { channel: dmCh, ts: dmTs, text: undoneDmText(nameOfRequest(l), await messageLink(l.channel, l.thread)) }).catch((e) => report(e, "undo.dm"));
   return true;
 }
