@@ -18,7 +18,7 @@ import { OWNER, appByKey } from "./config";
 import { gh } from "./github";
 import { report } from "./report";
 import { MODEL, transcript } from "./prompt";
-import { encodeRef, type Card, type Stage } from "./records";
+import { encodeRef, isQuestion, type Card, type Stage } from "./records";
 import { messageLink, slack } from "./slack";
 
 export const MAX_PER_TICK = 2;
@@ -97,7 +97,7 @@ export async function findMatch(thread: string, prs: MergedPr[]): Promise<Match>
 /** What the bot changes when it marks a request done itself, and what Undo puts back. Pure, tested. */
 export function markDone(c: Card, pr: MergedPr | null, why: string, now: number): void {
   c.undo = JSON.stringify({ stage: c.stage, prUrl: c.prUrl, mergedAt: c.mergedAt, note: c.note });
-  c.stage = !c.summary && !c.tier ? "answered" : "live";
+  c.stage = isQuestion(c) ? "answered" : "live";
   if (pr) c.prUrl = pr.url;
   c.mergedAt = pr ? pr.mergedAt : now;
   c.note = pr ? `Spotted live in pull request #${pr.number}${why ? `: ${why}` : ""}` : `Jamie said in the thread it's sorted${why ? `: ${why}` : ""}`;

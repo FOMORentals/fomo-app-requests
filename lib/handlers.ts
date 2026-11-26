@@ -47,7 +47,7 @@ import {
 } from "./actions";
 import { enforce, hasAppCard, missingNeeds, notesBlock, othersBlock, principlesBlock, transcript, turnPrompt, type Assessment, type Depth, type Other } from "./prompt";
 import { firstSinceStepBack, mentionsBot, mentionsSomeoneElse, STEP_BACK_NOTE, steppedBack } from "./aside";
-import { approvalMeta, cardMeta, decodeRef, encodeRef, newCard, reopensOnReply } from "./records";
+import { approvalMeta, cardMeta, decodeRef, encodeRef, isQuestion, newCard, reopensOnReply } from "./records";
 import { grillFromMessage, grillReply, grillRequest } from "./grill/handlers";
 import { report } from "./report";
 import { channel as requestsChannel, fileBase64, history, messageLink, slack, userEmail } from "./slack";
@@ -670,7 +670,7 @@ async function submitted(callbackId: string, ref: { channel: string; thread: str
   const app = appOf(l);
   if (callbackId === "done_elsewhere" && DONE_ELSEWHERE_FROM.includes(l.card.stage)) {
     if ((await userEmail(userId)) !== OWNER_EMAIL) return;
-    const wasQuestion = !l.card.summary && !l.card.tier;
+    const wasQuestion = isQuestion(l.card);
     if (l.card.stage === "failed" && l.card.issue) await closeIssue(app.repo, l.card.issue, "completed").catch((e) => report(e, "done_elsewhere.close_issue"));
     l.card.stage = wasQuestion ? "answered" : "live";
     l.card.note = text;

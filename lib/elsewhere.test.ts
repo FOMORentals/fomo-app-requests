@@ -71,3 +71,15 @@ test("only Jamie's replies since the last check count", () => {
   assert.deepEqual(newOwnerReplies(l, "UJ"), ["300.0"]);
   assert.deepEqual(newOwnerReplies({ ...l, card: card("handed") }, "UJ"), ["150.0", "300.0"]);
 });
+
+test("a grilled or reframed idea spotted done goes Live, a question goes Answered", () => {
+  const grilled = card("handed", { gate: "grill", after: "see progress" });
+  markDone(grilled, null, "", ASKED);
+  assert.equal(grilled.stage, "live");
+  const reframed = card("proposal", { reframed: true });
+  markDone(reframed, null, "", ASKED);
+  assert.equal(reframed.stage, "live");
+  const question = card("handed");
+  markDone(question, null, "", ASKED);
+  assert.equal(question.stage, "answered");
+});
