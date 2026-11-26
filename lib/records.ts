@@ -210,6 +210,15 @@ export function decodeRef(v: string | undefined): ApprovalRef | null {
   return channel && thread ? { channel, thread } : null;
 }
 
+/**
+ * A "why is the app doing this?" question rather than a change: no summary, no size, never reframed or grilled.
+ * A grilled idea has no summary or size either, so without the last two checks it was marked "Answered, no change
+ * needed" when it went live (Will's stock take, 26 Nov 2026). Pure, tested.
+ */
+export function isQuestion(c: Card): boolean {
+  return !c.summary && !c.tier && !c.reframed && !c.gate;
+}
+
 /** Stages where a build is using a slot. */
 export function usesBuildSlot(s: Stage): boolean {
   return s === "building";
