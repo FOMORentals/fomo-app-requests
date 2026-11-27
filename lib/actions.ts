@@ -6,7 +6,7 @@ import { fileNow, openBuildIssue } from "./github";
 import { issueBody, issueTitle } from "./issue";
 import type { Line } from "./prompt";
 import { transcript } from "./prompt";
-import { CARD, cardMeta, readCard, type Card } from "./records";
+import { CARD, CARD_META_MAX, CARD_META_TIGHT, cardMeta, fitCard, metaBytes, readCard, type Card } from "./records";
 import { dmChannel, history, messageLink, replies, slack, userEmail, userIdByEmail, type SlackMessage } from "./slack";
 import { londonDate } from "./time";
 
@@ -63,13 +63,21 @@ export function markChanged(): void {
 export async function save(l: Loaded): Promise<void> {
   markChanged();
   const app = appByKey(l.card.app);
-  await slack("chat.update", {
-    channel: l.channel,
-    ts: l.cardTs,
-    text: "Request status",
-    blocks: cardBlocks(l.card, app, { channel: l.channel, thread: l.thread }),
-    metadata: cardMeta(l.card),
-  });
+  const blocks = cardBlocks(l.card, app, { channel: l.channel, thread: l.thread });
+  const full = metaBytes(cardMeta(l.card));
+  for (const max of [CARD_META_MAX, CARD_META_TIGHT]) {
+    const stored = fitCard(l.card, max);
+    const bytes = metaBytes(cardMeta(stored));
+    if (stored !== l.card) console.log("CARD trimmed", JSON.stringify({ thread: l.thread, from: full, to: bytes }));
+    await slack("chat.update", { channel: l.channel, ts: l.cardTs, text: "Request status", blocks, metadata: cardMeta(stored) });
+    // Slack drops oversized metadata without an error (27 Nov 2026), so a big card is read back: a lost request is
+    // caught here, loudly, rather than at the requester's next tap (rule 1: nothing fails silently).
+    if (full <= CARD_META_TIGHT) return;
+    const back = (await replies(l.channel, l.thread)).find((m) => m.ts === l.cardTs);
+    if (readCard(back?.metadata)) return;
+    console.error("CARD dropped by Slack", JSON.stringify({ thread: l.thread, bytes }));
+  }
+  throw new Error(`Request ${l.thread}: Slack didn't keep the card's data, even trimmed`);
 }
 
 export async function postInThread(channel: string, thread: string, text: string, blocks?: Block[]): Promise<string> {

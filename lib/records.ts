@@ -168,7 +168,59 @@ export function cardMeta(c: Card): Meta {
     else if (typeof v === "boolean") p[k] = v ? "1" : "0";
     else p[k] = String(v);
   }
+  // Empty fields are left out (readCard fills them back in): they were a fifth of a big card (27 Nov 2026).
+  for (const [k, v] of Object.entries(p)) if (k !== "requester" && k !== "stage" && (v === "" || v === "0" || v === "[]")) delete p[k];
   return { event_type: CARD, event_payload: p };
+}
+
+/**
+ * Slack quietly drops message metadata that is too big: the update still succeeds, the card looks right, but the
+ * request's data is gone and every later tap says "not found" (Will's Kit Prep request, 27 Nov 2026, ~4.2 KB).
+ * Empty fields are left out, and a card is kept under this size, trimming the longest free-text notes first. The full wording is still in the
+ * thread's messages; only the card's copy is shortened.
+ */
+export const CARD_META_MAX = 3500;
+/** The second try, if Slack still drops a card at CARD_META_MAX. */
+export const CARD_META_TIGHT = 2500;
+
+export function metaBytes(m: Meta): number {
+  return Buffer.byteLength(JSON.stringify(m), "utf8");
+}
+
+// Least needed first. The summary goes last: it becomes Jamie's proposal and Sam's approval message.
+const TRIM: { field: keyof Card; floor: number }[] = [
+  { field: "after", floor: 160 },
+  { field: "scopeWhy", floor: 160 },
+  { field: "relatedWhy", floor: 160 },
+  { field: "keepSmall", floor: 160 },
+  { field: "samComment", floor: 240 },
+  { field: "note", floor: 240 },
+  { field: "reasons", floor: 240 },
+  { field: "contradiction", floor: 240 },
+];
+const SUMMARY_TRIM: (keyof Summary)[] = ["now", "who", "done", "should", "plan"];
+
+function cut(s: string, max: number): string {
+  return s.length <= max ? s : s.slice(0, max - 1).trimEnd() + "…";
+}
+
+/** The card, with its longest notes shortened until its metadata fits in `max` bytes. */
+export function fitCard(c: Card, max = CARD_META_MAX): Card {
+  if (metaBytes(cardMeta(c)) <= max) return c;
+  const out: Card = { ...c, summary: c.summary ? { ...c.summary } : null };
+  const rec = out as Record<string, unknown>;
+  for (const { field, floor } of TRIM) {
+    rec[field] = cut(String(rec[field] ?? ""), floor);
+    if (metaBytes(cardMeta(out)) <= max) return out;
+  }
+  for (const floor of [500, 300, 160]) {
+    if (!out.summary) break;
+    for (const k of SUMMARY_TRIM) {
+      out.summary[k] = cut(out.summary[k], floor);
+      if (metaBytes(cardMeta(out)) <= max) return out;
+    }
+  }
+  return out;
 }
 
 export function readCard(meta: Meta | undefined): Card | null {
